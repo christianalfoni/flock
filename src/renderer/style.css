@@ -647,3 +647,5 @@ body { overflow: hidden; color: var(--fg); }
 @keyframes agent-canvas-changed { 0%, 100% { box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 70%, transparent); } 50% { box-shadow: 0 0 0 8px color-mix(in srgb, var(--primary) 0%, transparent), 0 0 0 2px var(--primary); } }
 @keyframes agent-canvas-changed-rest { to { box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 55%, transparent); } }
 @media (prefers-reduced-motion: reduce) { .now-row { animation: none; } }
+
+.now-more { flex: none; border-radius: 999px; background: color-mix(in srgb, var(--working) 18%, transparent); padding: 1px 7px; color: color-mix(in srgb, var(--working) 80%, var(--fg)); font-size: 11.5px; font-weight: 800; }

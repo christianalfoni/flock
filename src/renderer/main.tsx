@@ -28,6 +28,20 @@ const recall = (key: string) => { try { return localStorage.getItem(key) ?? unde
 const errorMessage = (cause: unknown) => (cause instanceof Error ? cause.message : String(cause)).replace(/^Error invoking remote method '[^']+': (Error: )?/, "");
 const working = (session?: SessionState) => session?.status === "working" || session?.status === "starting";
 
+// The one work row on the canvas: the orchestrator while it works, else
+// the worker that did something last; how many others are at work too.
+function liveRows(agent: Agent, workers: Worker[], state: AppState) {
+  const asking = (id: string) => state.permissions.some((request) => request.session === id);
+  const atWork = (id: string) => working(state.sessions[id]) || asking(id);
+  const busyWorkers = workers.filter((item) => atWork(item.id)).sort((a, b) => (state.sessions[b.id]?.activeAt ?? 0) - (state.sessions[a.id]?.activeAt ?? 0));
+  const lead = atWork(agent.id)
+    ? { id: agent.id, name: agent.name, avatar: <AgentAvatar seed={agent.id} color={agentColor(agent)} size={22} working />, ...liveLine(state.sessions[agent.id], asking(agent.id)) }
+    : busyWorkers[0] && { id: busyWorkers[0].id, name: busyWorkers[0].id, avatar: <AgentAvatar seed={busyWorkers[0].id} color={agentColor(agent)} size={22} working />, ...liveLine(state.sessions[busyWorkers[0].id], asking(busyWorkers[0].id)) };
+  if (!lead) return [];
+  const more = busyWorkers.filter((item) => item.id !== lead.id).length;
+  return [{ ...lead, ...(more ? { more } : {}) }];
+}
+
 // The tools, as what the session is doing.
 const TOOL_WORDS: Record<string, string> = {
   Read: "Reading", Edit: "Editing", Write: "Writing a file", MultiEdit: "Editing", NotebookEdit: "Editing a notebook",
@@ -510,15 +524,7 @@ function Conversation({ id, agent, worker, state, view, onView, onBack, panel }:
             onOpenPull={(url) => void window.dispatch.openExternal(url)}
             renderText={(text) => <ChatMarkdown text={text} />}
             avatar={(atWork) => <AgentAvatar seed={agent.id} color={agentColor(agent)} size={28} working={atWork} />}
-            live={[
-              ...(busy ? [{ id: agent.id, name: agent.name, avatar: <AgentAvatar seed={agent.id} color={agentColor(agent)} size={22} working />, ...liveLine(session, state.permissions.some((request) => request.session === agent.id)) }] : []),
-              ...workers.filter((item) => working(state.sessions[item.id]) || state.permissions.some((request) => request.session === item.id)).map((item) => ({
-                id: item.id,
-                name: item.id,
-                avatar: <AgentAvatar seed={item.id} color={agentColor(agent)} size={22} working />,
-                ...liveLine(state.sessions[item.id], state.permissions.some((request) => request.session === item.id)),
-              })),
-            ]}
+            live={liveRows(agent, workers, state)}
           />
         </React.Suspense>
       ) : (

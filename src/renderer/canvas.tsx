@@ -69,11 +69,12 @@ type CanvasProps = { agentId: string; name: string; voice?: string; pullRequests
   renderText?(text: string): React.ReactNode;
   // The agent's avatar, at work or not, for the ask's dock.
   avatar?(working: boolean): React.ReactNode;
-  // Who is at work now (the agent and its workers), each with its latest
-  // line: the canvas's work rows.
+  // Who is at work now, with its latest line: the agent while it works,
+  // else the worker that did something last (main.tsx, liveRows).
   live?: LiveRow[] };
 
-export type LiveRow = { id: string; name: string; avatar: React.ReactNode; line: string; detail?: string };
+// more: how many others are at work too.
+export type LiveRow = { id: string; name: string; avatar: React.ReactNode; line: string; detail?: string; more?: number };
 
 // The canvases you have looked at stay drawn, each in its own element, so
 // coming back to an agent shows its canvas at once, as you left it. The slot
@@ -129,7 +130,7 @@ export function CanvasSlot(props: CanvasProps) {
   }, [agentId]);
   // New names, voice or pull request states reach the canvas shown.
   const pulls = JSON.stringify(props.pullRequests ?? []);
-  useEffect(() => draw(true), [props.name, props.voice, pulls, JSON.stringify(props.activity), props.working, JSON.stringify((props.live ?? []).map((row) => [row.id, row.line, row.detail]))]);
+  useEffect(() => draw(true), [props.name, props.voice, pulls, JSON.stringify(props.activity), props.working, JSON.stringify((props.live ?? []).map((row) => [row.id, row.line, row.detail, row.more]))]);
   // Under the kept canvas, the skeleton: until the canvas has drawn itself
   // (its element is filled a frame after it is put here), the slot is never
   // empty.
@@ -1064,6 +1065,7 @@ function NowIsland({ live, update, onPlayNew }: { live: LiveRow[]; update?: { wh
           <span className="now-name">{row.name}</span>
           <span className="now-line">{row.line}</span>
           {row.detail && <span className="now-detail">{row.detail}</span>}
+          {row.more ? <span className="now-more" title={`${row.more} more at work`}>+{row.more}</span> : null}
         </div>
       ))}
     </div>
