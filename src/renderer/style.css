@@ -1,0 +1,356 @@
+@import "tailwindcss";
+
+/* The look follows ttmi.ai: lavender neutrals, a violet primary with a
+   darker "ledge" under raised buttons, rounded shapes and soft violet
+   shadows. Light by default; dark follows the system. */
+@font-face { font-family: "Nunito Variable"; font-style: normal; font-display: swap; font-weight: 200 1000; src: url("./fonts/nunito-latin-wght-normal.woff2") format("woff2-variations"); }
+@font-face { font-family: "Bricolage Grotesque Variable"; font-style: normal; font-display: swap; font-weight: 200 800; src: url("./fonts/bricolage-grotesque-latin-wght-normal.woff2") format("woff2-variations"); }
+@font-face { font-family: "Geist Mono Variable"; font-style: normal; font-display: swap; font-weight: 100 900; src: url("./fonts/geist-mono-latin-wght-normal.woff2") format("woff2-variations"); }
+
+:root {
+  color-scheme: light;
+  --font-body: "Nunito Variable", ui-rounded, ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-display: "Bricolage Grotesque Variable", "Nunito Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Geist Mono Variable", ui-monospace, "SF Mono", Menlo, monospace;
+  --radius: 0.875rem;
+  --bg: #f7f6fe;
+  --surface: #ffffff;
+  --surface-2: #f8f7ff;
+  --surface-3: #eeebfd;
+  --border: #e5e1f6;
+  --border-strong: #d8d3ef;
+  --fg: #262342;
+  --mention: #9a6700;
+  --fg-1: #3d3a5c;
+  --fg-2: #6e6a8f;
+  --fg-3: #8e8aae;
+  --fg-4: #b4b0cf;
+  --code-bg: #f4f2fc;
+  --primary: #7c5cff;
+  --primary-ledge: #5b3fe0;
+  --primary-fg: #ffffff;
+  --primary-soft: #efecff;
+  --shadow-color: 76 56 180;
+  --gh-open: #1f883d;
+  --gh-draft: #6e7781;
+  --gh-merged: #8250df;
+  --gh-closed: #2b2a33;
+  --gh-queued: #d6409f;
+  --gh-conflict: #ec6a12;
+  /* Working, everywhere (the prompt, the left bar, the canvas): the canvas's
+     yellow, as a pull request's badge shows a worker at it. */
+  --working: #e0a400;
+  --shadow-soft: 0 1px 2px rgb(var(--shadow-color) / 0.05), 0 4px 14px rgb(var(--shadow-color) / 0.07);
+  --shadow-panel: 0 1px 2px rgb(var(--shadow-color) / 0.06), 0 10px 30px rgb(var(--shadow-color) / 0.12);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  --session-list-width: clamp(420px, 40vw, 620px);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --bg: #0e0e10;
+    --surface: #161618;
+    --surface-2: #1a1a1d;
+    --surface-3: #232327;
+    --border: #26262a;
+    --border-strong: #323237;
+    --fg: #ededf0;
+    --mention: #e3b341;
+    --fg-1: #cfcfd4;
+    --fg-2: #a0a0a8;
+    --fg-3: #74747c;
+    --fg-4: #4e4e55;
+    --code-bg: #121214;
+    --primary: #9d87ff;
+    --primary-ledge: #6a52d6;
+    --primary-fg: #160f3a;
+    --primary-soft: #221f33;
+    --shadow-color: 0 0 0;
+    --gh-open: #238636;
+    --gh-draft: #6e7681;
+    --gh-merged: #8957e5;
+    --gh-closed: #3a3942;
+    --gh-queued: #db61a2;
+    --gh-conflict: #f0761e;
+    --working: #f5c330;
+  }
+}
+
+* { box-sizing: border-box; }
+html { font-size: 17px; }
+body { margin: 0; background: var(--bg); }
+::selection { background: color-mix(in srgb, var(--primary) 30%, transparent); color: var(--fg); }
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 999px; }
+::-webkit-scrollbar-thumb:hover { background: var(--fg-4); }
+::-webkit-scrollbar-track { background: transparent; }
+button, input, textarea, select { font: inherit; }
+button { cursor: pointer; }
+button:disabled { cursor: not-allowed; opacity: 0.45; }
+
+
+/* --- From Flock: chat markdown, the working row, the message box --- */
+.chat-markdown { color: var(--fg); font-size: 1.1rem; line-height: 1.65; overflow-wrap: anywhere; }
+.chat-markdown > * + * { margin-top: 0.7rem; }
+.chat-markdown h1, .chat-markdown h2, .chat-markdown h3 { color: var(--fg); font-family: var(--font-display); font-weight: 700; line-height: 1.3; }
+.chat-markdown h1 { font-size: 1.35rem; } .chat-markdown h2 { font-size: 1.2rem; } .chat-markdown h3 { font-size: 1.1rem; }
+.chat-markdown a:not(.issue-badge) { color: var(--primary); font-weight: 600; text-decoration: underline; text-decoration-color: color-mix(in srgb, var(--primary) 40%, transparent); text-underline-offset: 3px; cursor: pointer; }
+.chat-markdown a:not(.issue-badge):hover { text-decoration-color: var(--primary); }
+.chat-markdown ul { list-style: disc; padding-left: 1.3rem; }
+.chat-markdown ol { list-style: decimal; padding-left: 1.3rem; }
+.chat-markdown li + li { margin-top: 0.25rem; }
+.chat-markdown strong { color: var(--fg); font-weight: 600; }
+.chat-markdown code { border-radius: 0.35rem; background: var(--surface-2); padding: 0.08rem 0.32rem; font-size: 0.84em; }
+.chat-markdown pre { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius); background: var(--code-bg); padding: 0.85rem 1rem; font-size: 0.88rem; line-height: 1.55; }
+.chat-markdown pre code { background: transparent; padding: 0; font-size: inherit; }
+.msg-notice-warn { color: color-mix(in srgb, #ff8fa3 62%, var(--fg)); }
+.convo-working { display: flex; min-width: 0; align-items: center; gap: 0.55rem; color: var(--fg-2); font-size: 0.95rem; }
+.convo-working-label { flex: none; white-space: nowrap; }
+.convo-working-tool { flex: 1; min-width: 0; overflow: hidden; color: var(--fg-3); font-family: var(--font-mono); font-size: 0.82rem; text-overflow: ellipsis; white-space: nowrap; }
+.convo-working-dot { width: 9px; height: 9px; flex: none; border-radius: 999px; background: var(--working); transform: translateY(0.08em); animation: working-pulse 1.6s ease-in-out infinite; }
+@keyframes convo-pulse { 0%, 100% { opacity: 0.35; transform: scale(0.8); } 50% { opacity: 1; transform: scale(1); } }
+@media (prefers-reduced-motion: reduce) { .convo-working-dot { animation: none; } }
+@keyframes working-pulse { 0%, 100% { opacity: 0.55; box-shadow: 0 0 0 2px color-mix(in srgb, var(--working) 12%, transparent); } 50% { opacity: 1; box-shadow: 0 0 0 4px color-mix(in srgb, var(--working) 25%, transparent); } }
+
+.convo-composer { flex: none; padding: 0 0 1.1rem; }
+.convo-box { position: relative; z-index: 1; display: flex; width: min(820px, calc(100% - 3rem)); align-items: flex-end; gap: 0.5rem; margin: 0 auto; border: 1px solid var(--border); border-radius: 1.1rem; background: var(--surface); padding: 0.55rem 0.55rem 0.55rem 1rem; box-shadow: var(--shadow-panel); }
+.convo-box:focus-within { border-color: var(--border-strong); }
+/* The agent is working on a turn: what you send is read when it ends. */
+.convo-box.convo-box-working, .convo-box.convo-box-working:focus-within { border-color: var(--working); box-shadow: 0 0 0 3px color-mix(in srgb, var(--working) 16%, transparent), var(--shadow-panel); }
+/* On a canvas the walkthrough's panel and the message box are one
+   container: the edge goes round both, and the seam between stays quiet. */
+.convo-canvas-mode .convo-box.convo-box-working, .convo-canvas-mode .convo-box.convo-box-working:focus-within { border-top-color: color-mix(in srgb, var(--border) 60%, transparent); box-shadow: none; }
+.convo-canvas-mode.convo-busy .agent-canvas .sketch-steps, .convo-canvas-mode.convo-busy .agent-canvas-skeleton-panel { border-color: var(--working); }
+.convo-input { position: relative; display: flex; min-width: 0; flex: 1; }
+.convo-box textarea { margin: 0; border: 0; padding: 0.3rem 0.2em; font-family: var(--font-body); font-size: 1.05rem; line-height: 1.5; letter-spacing: normal; word-spacing: 0.14em; white-space: pre-wrap; overflow-wrap: anywhere; }
+.convo-box textarea { position: relative; z-index: 1; max-height: 40vh; min-height: 1.6rem; flex: 1; resize: none; background: transparent; color: var(--fg); caret-color: var(--fg); field-sizing: content; box-shadow: none; }
+
+/* --- From Flock: the canvas --- */
+/* An orchestrator's canvas (canvas.tsx): TTMI's board fills the space above
+   the message box; the board draws its own ground and chrome. */
+.agent-canvas { position: relative; min-height: 0; flex: 1; overflow: hidden; }
+/* Where the agent's kept canvas is put (canvas.tsx, CanvasSlot). */
+.agent-canvas-slot { position: relative; min-height: 0; flex: 1; }
+.agent-canvas-host { position: absolute; inset: 0; display: flex; flex-direction: column; }
+/* While a canvas loads: a drawing's outline and the walkthrough's panel. */
+.agent-canvas-skeleton { position: absolute; z-index: 2; inset: 0; background: var(--bg); pointer-events: none; transition: opacity 320ms ease-out; }
+.agent-canvas-skeleton-leaving { opacity: 0; }
+/* The slot's own, under the kept canvas. */
+.agent-canvas-slot > .agent-canvas-skeleton { z-index: 0; }
+.agent-canvas-slot > .agent-canvas-host { z-index: 1; }
+.agent-canvas-skeleton-drawing { position: absolute; inset: 1.5rem 0 9rem; }
+.agent-canvas-skeleton-lines { position: absolute; inset: 0; width: 100%; height: 100%; }
+.agent-canvas-skeleton-lines line { stroke: var(--border); stroke-width: 1.5; }
+.agent-canvas-skeleton-box, .agent-canvas-skeleton-text, .agent-canvas-skeleton-bar { animation: agent-canvas-pulse 1.4s ease-in-out infinite; animation-delay: var(--skeleton-phase, 0ms); }
+.agent-canvas-skeleton-box { position: absolute; box-sizing: border-box; border: 1.5px solid var(--border-strong); border-radius: 0.9rem; background: var(--surface); }
+.agent-canvas-skeleton-panel { position: absolute; bottom: 0; left: 50%; display: flex; width: min(820px, calc(100% - 3rem)); box-sizing: border-box; flex-direction: column; gap: 0.6rem; transform: translateX(-50%); border: 1px solid var(--border); border-bottom: 0; border-radius: 1.1rem 1.1rem 0 0; background: var(--surface); padding: 1.1rem 1rem 0.9rem; }
+.agent-canvas-skeleton-text { display: block; width: 72%; height: 0.8rem; border-radius: 999px; background: var(--surface-3); }
+.agent-canvas-skeleton-text-short { width: 44%; }
+.agent-canvas-skeleton-bar { display: block; height: 0.3rem; margin-top: 0.3rem; border-radius: 999px; background: var(--surface-3); }
+@keyframes agent-canvas-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
+@media (prefers-reduced-motion: reduce) { .agent-canvas-skeleton-box, .agent-canvas-skeleton-text, .agent-canvas-skeleton-bar { animation: none; } }
+/* The board in Flock's colours: its ground, panels, borders and text (both
+   themes, over TTMI's own palette); the shapes keep TTMI's colours. */
+.agent-canvas, .agent-canvas.dark {
+  --board: var(--bg);
+  --board-foreground: var(--fg);
+  --board-accent: var(--primary);
+  --board-on-accent: var(--primary-fg);
+  --board-border: var(--border-strong);
+  --board-panel: var(--surface);
+  --board-muted: var(--fg-3);
+  --board-hover: var(--surface-3);
+  --board-active: var(--surface-3);
+  --board-code: var(--code-bg);
+  --board-lit: var(--surface-2);
+  --board-shadow: var(--shadow-color);
+}
+/* No keyboard hints, no zoom chip, and no way out of the walkthrough. */
+.agent-canvas .sketch-hints, .agent-canvas .sketch-zoom, .agent-canvas .sketch-step-close { display: none; }
+/* The walkthrough's panel and the message box are one container: the panel
+   sits on the box, as wide, its bottom flat; what is on top of the box
+   (the goal, or the box itself) loses its top corners and edge. */
+.agent-canvas .sketch-steps { bottom: 0; width: min(820px, calc(100% - 3rem)); border-color: var(--border); border-bottom: 0; border-radius: 1.1rem 1.1rem 0 0; background: var(--surface); box-shadow: none; padding-bottom: 12px; }
+.convo-canvas-mode .convo-box { border-top-left-radius: 0; border-top-right-radius: 0; }
+.convo-canvas-mode .convo-box { border-top-color: color-mix(in srgb, var(--border) 60%, transparent); }
+/* Its voice on or off, in the board's top right (for every canvas). */
+.agent-canvas-mute { display: grid; width: 30px; height: 30px; flex: none; place-items: center; border: 0; border-radius: 999px; background: transparent; color: var(--fg-2); cursor: pointer; }
+.agent-canvas-mute:hover { background: var(--surface-3); color: var(--fg); }
+.agent-canvas-mute[aria-pressed="true"] { color: var(--fg-4); }
+/* The walkthrough's top row holds TTMI's close, text and Ask buttons, none
+   of them used here: without it, the words start at the panel's top. The
+   ask's panel keeps it, for its close. */
+.agent-canvas .sketch-steps:not(.sketch-steps-ask) .sketch-step-top { display: none; }
+/* An ask waiting for its answer: the question goes straight to the
+   orchestrator, so no prompt to copy; the board's line says so instead. */
+.agent-canvas .sketch-ask-waiting { display: none; }
+/* In its place, the chat's working row (canvas.tsx), on one line. */
+.agent-canvas .agent-canvas-working { margin-top: 0.15rem; }
+/* Answered: your question and the answer as two bubbles (canvas.tsx), above
+   Listen and Continue, in place of the board's answer line. */
+.agent-canvas .sketch-ask[data-ask-phase="summary"] .sketch-narration { display: none; }
+.agent-canvas .agent-canvas-thread { display: flex; order: -1; flex-direction: column; align-self: stretch; gap: 8px; }
+.agent-canvas .agent-canvas-answer { align-self: flex-start; max-width: 92%; margin: 0; border-radius: 16px 16px 16px 4px; background: var(--surface-3); padding: 8px 12px; }
+/* The question and the answer, as the chat writes them, at the panel's size. */
+.agent-canvas .agent-canvas-thread .chat-markdown { font-size: 15px; line-height: 1.5; }
+.agent-canvas .agent-canvas-thread .chat-markdown > * + * { margin-top: 0.5rem; }
+/* A long question or answer scrolls in its own bubble: the working row and
+   Continue stay in view under it. */
+.agent-canvas .agent-canvas-question:not(.agent-canvas-question-clamped) .agent-canvas-question-text, .agent-canvas .agent-canvas-answer { max-height: 38vh; overflow-y: auto; overscroll-behavior: contain; }
+.agent-canvas .sketch-ask-wait > .sketch-ask-bubble { display: none; }
+.agent-canvas .agent-canvas-question { align-self: flex-end; max-width: 92%; border-radius: 16px 16px 4px 16px; background: color-mix(in srgb, var(--board-accent) 16%, var(--board-panel)); padding: 8px 12px; }
+.agent-canvas .agent-canvas-question-clamped .agent-canvas-question-text { max-height: 8.5em; overflow: hidden; -webkit-mask-image: linear-gradient(#000 60%, transparent); mask-image: linear-gradient(#000 60%, transparent); }
+.agent-canvas .agent-canvas-question-more { margin-top: 4px; border: 0; background: none; padding: 0; color: var(--board-muted); font-size: 13px; cursor: pointer; }
+.agent-canvas .agent-canvas-question-more:hover { color: var(--fg); }
+/* Nothing to copy, and no cancel: the ask is answered in its own time. */
+.agent-canvas .sketch-ask-actions, .agent-canvas .sketch-ask[data-ask-phase="waiting"] .sketch-ask-close { display: none; }
+/* An answer is heard first, then goes on (canvas.tsx, askAction). */
+.agent-canvas .sketch-ask-continue .sketch-ask-hint { font-size: 0; }
+.agent-canvas .sketch-ask-continue .sketch-ask-hint kbd { font-size: 11px; }
+.agent-canvas .sketch-ask-continue .sketch-ask-hint::after { content: " " var(--agent-canvas-ask-hint); font-size: 13px; }
+.agent-canvas .sketch-ask-continue .sketch-ask-send { font-size: 0; }
+.agent-canvas .sketch-ask-continue .sketch-ask-send::after { content: var(--agent-canvas-ask-action); font-size: 14px; }
+/* A pull request's badge (its number and worker) opens the pull request
+   panel; its colour comes from canvas.tsx. */
+.agent-canvas .sketch-portal > .sketch-tag { cursor: pointer; }
+/* The review's mark, an eye, at the end of its pill (in its words' colour,
+   from canvas.tsx); while a review runs, alone and breathing. */
+.agent-canvas .sketch-portal::before { position: absolute; z-index: 2; top: -1px; right: 22px; width: 12px; height: 12px; transform: translateY(-50%); pointer-events: none; -webkit-mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'><path d='M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0'/><circle cx='12' cy='12' r='3'/></svg>") center / contain no-repeat; mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'><path d='M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0'/><circle cx='12' cy='12' r='3'/></svg>") center / contain no-repeat; }
+@keyframes agent-review-running { 0%, 100% { opacity: 0.35; } 50% { opacity: 1; } }
+/* A pull request's badge has GitHub's mark, in the badge's colour, in
+   place of the board's mark for a canvas (a magnifying glass). */
+.agent-canvas .sketch-portal > .sketch-tag > .sketch-canvas-mark { display: none; }
+.agent-canvas .sketch-portal > .sketch-tag::before { width: 11px; height: 11px; flex: none; background: currentColor; content: ""; -webkit-mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path d='M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8z'/></svg>") center / contain no-repeat; mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path d='M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8z'/></svg>") center / contain no-repeat; }
+/* Its review (canvas.tsx gives the words and colour), on the frame's top
+   edge at the other end from the badge, in the badge's type. */
+.agent-canvas .sketch-portal::after { position: absolute; top: -1px; transform: translateY(-50%); right: 14px; bottom: auto; left: auto; z-index: 1; height: auto; border: 1.5px solid; border-radius: 999px; padding: 1px 22px 1px 7px; font-family: var(--font-mono), ui-monospace, "SF Mono", Menlo, monospace; font-size: 10.5px; font-weight: 650; letter-spacing: 0.05em; line-height: 1.35; text-transform: uppercase; white-space: nowrap; pointer-events: none; }
+/* The ready line says how many steps are new (canvas.tsx). */
+.agent-canvas .sketch-ready-meta::after { content: var(--agent-canvas-fresh, ""); color: var(--board-accent); font-weight: 600; }
+/* Out of a pull request's canvas, back to the orchestrator's. */
+.agent-canvas-back { display: inline-flex; height: 2rem; align-items: center; gap: 0.35rem; border: 1px solid var(--border-strong); border-radius: 999px; background: var(--surface); padding: 0 0.8rem 0 0.6rem; color: var(--fg-2); font-size: 0.8rem; font-weight: 600; cursor: pointer; }
+.agent-canvas-back:hover { background: var(--surface-3); color: var(--fg); }
+.agent-canvas-voice-wait { display: inline-flex; align-items: center; gap: 0.6rem; color: var(--fg-3); font-size: 0.8rem; }
+.agent-canvas-voice-bar { width: 6rem; height: 4px; overflow: hidden; border-radius: 999px; background: var(--surface-3); }
+.agent-canvas-voice-bar > span { display: block; height: 100%; width: 0; border-radius: 999px; background: var(--primary); }
+/* Why there is no voice, in the bottom left corner, clear of the tabs. */
+.agent-canvas-note { position: absolute; bottom: 0.8rem; left: 0.8rem; max-width: min(28rem, 60%); color: var(--fg-3); font-size: 0.76rem; pointer-events: none; }
+.agent-canvas-empty { position: absolute; top: 45%; left: 0; right: 0; color: var(--fg-3); text-align: center; pointer-events: none; }
+.agent-canvas-error { position: absolute; bottom: 0.8rem; left: 50%; max-width: min(36rem, 90%); transform: translateX(-50%); border: 1px solid color-mix(in srgb, #ef4565 45%, transparent); border-radius: 0.5rem; background: color-mix(in srgb, #ef4565 12%, var(--bg)); padding: 0.35rem 0.7rem; color: #ef4565; font-size: 0.78rem; }
+.agent-canvas-slot:has(.sketch) > .agent-canvas-skeleton { display: none; }
+/* No label (Overview, Step N, Summary) before the step bar. */
+.agent-canvas .sketch-step-title { display: none; }
+/* The narration and the ask's question and answer can be selected and
+   copied (the board turns selection off everywhere else on it). */
+.agent-canvas .sketch-narration, .agent-canvas .agent-canvas-thread { user-select: text; -webkit-user-select: text; cursor: text; }
+.agent-canvas .sketch-narration .sketch-ref { cursor: pointer; }
+/* Always the walkthrough: no Play in the corner (the board shows it while the
+   walkthrough is not open, as a canvas loads or an ask is on show). */
+.agent-canvas .sketch-topright { display: none; }
+
+/* --- Flock's own layout: the left bar, the views, the panels --- */
+html, body, #root { height: 100%; }
+body { overflow: hidden; color: var(--fg); font-family: var(--font-body); }
+.app-loading { height: 100%; background: var(--bg); }
+.app { display: flex; height: 100%; }
+.app-main { position: relative; display: flex; min-width: 0; flex: 1; flex-direction: column; }
+.muted { color: var(--fg-3); }
+.icon-button { display: grid; width: 1.9rem; height: 1.9rem; flex: none; place-items: center; border: 0; border-radius: 0.5rem; background: transparent; color: var(--fg-2); }
+.icon-button:hover { background: var(--surface-3); color: var(--fg); }
+.primary-button { border: 0; border-radius: 0.6rem; background: var(--primary); color: var(--primary-fg); padding: 0.55rem 1.1rem; font-weight: 700; box-shadow: 0 2px 0 var(--primary-ledge); }
+.primary-button:hover:not(:disabled) { filter: brightness(1.06); }
+.ghost-button { border: 1px solid var(--border-strong); border-radius: 0.6rem; background: transparent; color: var(--fg-1); padding: 0.5rem 1rem; font-weight: 600; }
+.ghost-button:hover { background: var(--surface-3); }
+.link-button { border: 0; background: none; padding: 0; color: var(--primary); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
+
+/* The left bar: each orchestrator, its workers under it. Room at the top
+   for the window's traffic lights, and that strip drags the window. */
+.sidebar { display: flex; width: 250px; flex: none; flex-direction: column; border-right: 1px solid var(--border); background: var(--surface); }
+.sidebar-top { display: flex; align-items: center; justify-content: space-between; padding: 2.6rem 0.75rem 0.6rem 1rem; -webkit-app-region: drag; }
+.sidebar-top button { -webkit-app-region: no-drag; }
+.sidebar-title { font-family: var(--font-display); font-size: 1.15rem; font-weight: 700; }
+.sidebar-list { min-height: 0; flex: 1; overflow-y: auto; padding: 0 0.5rem; }
+.sidebar-group { margin-bottom: 0.4rem; }
+.sidebar-row { display: flex; width: 100%; align-items: center; gap: 0.55rem; border: 0; border-radius: 0.55rem; background: transparent; padding: 0.45rem 0.6rem; color: var(--fg-1); font-size: 0.9rem; text-align: left; }
+.sidebar-row:hover { background: var(--surface-2); }
+.sidebar-row-active, .sidebar-row-active:hover { background: var(--surface-3); color: var(--fg); }
+.sidebar-row-worker { padding-left: 1.5rem; font-size: 0.84rem; }
+.sidebar-name { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sidebar-bottom { border-top: 1px solid var(--border); padding: 0.5rem; }
+.id-badge { flex: none; border-radius: 999px; padding: 0.05rem 0.45rem; font-family: var(--font-mono); font-size: 0.7rem; font-weight: 700; }
+.id-orchestrator { background: rgb(247 118 142 / 0.14); color: color-mix(in srgb, #f7768e 65%, var(--fg)); }
+.id-worker { background: rgb(255 158 100 / 0.14); color: color-mix(in srgb, #ff9e64 65%, var(--fg)); }
+.status-dot { width: 0.55rem; height: 0.55rem; flex: none; border-radius: 999px; background: var(--fg-4); }
+.status-idle { background: #3ee08f; }
+.status-starting, .status-working { background: var(--working); animation: working-pulse 1.6s ease-in-out infinite; }
+.status-error { background: #ef4565; }
+
+/* An agent or a worker: its header, its view, its message box. */
+.agent-view { display: flex; min-height: 0; flex: 1; flex-direction: column; background: var(--bg); }
+.agent-header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; border-bottom: 1px solid var(--border); padding: 0.7rem 1rem; -webkit-app-region: drag; }
+.agent-header button, .agent-header a { -webkit-app-region: no-drag; }
+.agent-header-title { display: flex; min-width: 0; align-items: center; gap: 0.55rem; }
+.agent-header-meta { overflow: hidden; font-size: 0.8rem; text-overflow: ellipsis; white-space: nowrap; }
+.agent-header-actions { display: flex; flex: none; align-items: center; gap: 0.4rem; }
+.session-line { max-width: 22rem; overflow: hidden; font-size: 0.78rem; text-overflow: ellipsis; white-space: nowrap; }
+.view-switch { display: flex; border: 1px solid var(--border); border-radius: 0.6rem; padding: 2px; }
+.view-switch button { display: inline-flex; align-items: center; gap: 0.3rem; border: 0; border-radius: 0.45rem; background: transparent; padding: 0.25rem 0.6rem; color: var(--fg-2); font-size: 0.8rem; font-weight: 600; }
+.view-switch button.active { background: var(--surface-3); color: var(--fg); }
+.pr-chip { border-radius: 999px; background: var(--surface-3); padding: 0.1rem 0.55rem; color: var(--fg-1); font-size: 0.75rem; font-weight: 600; text-decoration: none; }
+.pr-merged { background: color-mix(in srgb, var(--gh-merged) 25%, transparent); }
+.pr-open { background: color-mix(in srgb, var(--gh-open) 25%, transparent); }
+.pr-conflict { background: color-mix(in srgb, var(--gh-conflict) 25%, transparent); }
+.worker-report { border-bottom: 1px solid var(--border); padding: 0.5rem 1rem; color: var(--fg-1); font-size: 0.85rem; }
+
+/* The Chat view: the plain transcript. */
+.chat { min-height: 0; flex: 1; overflow-y: auto; }
+.chat-inner { display: flex; width: min(820px, calc(100% - 3rem)); flex-direction: column; gap: 0.7rem; margin: 0 auto; padding: 1.5rem 0; }
+.chat-empty { color: var(--fg-3); text-align: center; }
+.chat .chat-markdown { font-size: 1rem; }
+.msg-user { align-self: flex-end; max-width: 85%; border-radius: 16px 16px 4px 16px; background: color-mix(in srgb, var(--primary) 14%, var(--surface)); padding: 0.5rem 0.85rem; }
+.msg-user-from { align-self: flex-start; border-radius: 16px 16px 16px 4px; background: var(--surface-3); }
+.msg-user-from .chat-markdown { color: var(--fg-1); font-size: 0.9rem; }
+.msg-from { display: block; margin-bottom: 0.2rem; color: var(--fg-3); font-family: var(--font-mono); font-size: 0.72rem; font-weight: 700; }
+.msg-assistant { align-self: stretch; }
+.msg-tool { display: flex; min-width: 0; align-items: baseline; gap: 0.5rem; color: var(--fg-3); font-size: 0.8rem; }
+.msg-tool + .msg-tool { margin-top: -0.45rem; }
+.msg-tool-name { flex: none; color: var(--fg-2); font-weight: 700; }
+.msg-tool-summary { min-width: 0; overflow: hidden; font-family: var(--font-mono); text-overflow: ellipsis; white-space: nowrap; }
+.msg-tool-error .msg-tool-summary { color: color-mix(in srgb, #ff8fa3 70%, var(--fg)); white-space: normal; }
+.msg-notice { color: var(--fg-3); font-size: 0.8rem; }
+.msg-notice-warn { color: color-mix(in srgb, #ff8fa3 62%, var(--fg)); }
+
+/* The message box under every view. */
+.convo-composer { padding-top: 0; }
+.convo-canvas-mode .convo-composer { padding-top: 0; }
+.composer-error { width: min(820px, calc(100% - 3rem)); margin: 0 auto 0.5rem; color: #ef4565; font-size: 0.82rem; }
+.convo-box textarea { width: 100%; padding: 0.3rem 0.2em; outline: none; }
+.convo-box textarea::placeholder { color: var(--fg-3); }
+.convo-box textarea:focus { box-shadow: none; }
+
+/* The new agent form and the settings: one card in the middle. */
+.panel { min-height: 0; flex: 1; overflow-y: auto; padding: 3.5rem 1.5rem; -webkit-app-region: no-drag; }
+.panel-card { width: min(560px, 100%); margin: 0 auto; border: 1px solid var(--border); border-radius: 1.1rem; background: var(--surface); padding: 1.6rem 1.8rem; box-shadow: var(--shadow-panel); }
+.panel-head { display: flex; align-items: center; justify-content: space-between; }
+.panel-card h1 { margin: 0; font-family: var(--font-display); font-size: 1.5rem; }
+.panel-card h2 { margin: 1.6rem 0 0.4rem; font-family: var(--font-display); font-size: 1.05rem; }
+.panel-lead { color: var(--fg-2); line-height: 1.55; }
+.panel-error { color: #ef4565; font-size: 0.85rem; }
+.panel-actions { display: flex; justify-content: flex-end; margin-top: 1.4rem; }
+.field { display: flex; flex-direction: column; gap: 0.35rem; }
+.field { margin-top: 1rem; }
+.field input, .field select { width: 100%; border: 1px solid var(--border-strong); border-radius: 0.5rem; background: var(--bg); color: var(--fg); padding: 0.65rem 0.8rem; outline: none; }
+.field input:focus, .field select:focus { border-color: var(--fg-4); }
+.field > span { color: var(--fg-2); font-size: 0.82rem; font-weight: 600; }
+.field small { font-size: 0.78rem; line-height: 1.45; }
+.folder-pick { display: flex; align-items: center; gap: 0.5rem; border: 1px dashed var(--border-strong); border-radius: 0.5rem; background: var(--bg); padding: 0.7rem 0.8rem; color: var(--fg-1); text-align: left; overflow-wrap: anywhere; }
+.cli-list { margin: 0.4rem 0 0.6rem; padding: 0; list-style: none; }
+.cli-list li { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; padding: 0.3rem 0; font-size: 0.9rem; }
+
+/* Tool calls waiting for your yes, top right over everything. */
+.permissions { position: fixed; z-index: 50; top: 1rem; right: 1rem; display: flex; width: min(380px, calc(100vw - 2rem)); flex-direction: column; gap: 0.6rem; }
+.permission { border: 1px solid var(--working); border-radius: 0.9rem; background: var(--surface); padding: 0.8rem 0.9rem; box-shadow: var(--shadow-panel); }
+.permission-head { display: flex; align-items: center; gap: 0.4rem; font-size: 0.85rem; }
+.permission-what { margin-top: 0.3rem; font-size: 0.9rem; }
+.permission-input { max-height: 10rem; overflow: auto; margin: 0.4rem 0 0; border-radius: 0.5rem; background: var(--code-bg); padding: 0.5rem 0.6rem; font-family: var(--font-mono); font-size: 0.78rem; white-space: pre-wrap; overflow-wrap: anywhere; }
+.permission-actions { display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.6rem; }

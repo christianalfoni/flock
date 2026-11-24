@@ -1,0 +1,83 @@
+# Flock
+
+A desktop app where you talk to coding agents through a canvas. Each agent answers by drawing: a few boxes and a walkthrough you play, with its voice, step by step. It runs on the coding CLIs already installed on your machine (Claude Code, Codex). An agent's workers are git worktrees, each with its own CLI session.
+
+No accounts, no cloud, no config file: pick a git repository, start an agent, talk.
+
+## What it does
+
+1. **You start an agent on a repository.** The agent is an *orchestrator*: one long CLI session that plans and does not edit files itself.
+2. **You talk to it.** In the **Canvas** view, what you write is an *Ask* about the walkthrough step you are on. In the **Chat** view, you see the plain transcript.
+3. **It answers by drawing.** Its `draw` tool sets its canvas, which is a [TTMI](https://ttmi.ai) drawing with a narrated walkthrough. The app merges each drawing into your board and keeps where you moved things.
+4. **It starts workers.** `start_worker` creates a git worktree and branch for the task, starts a CLI session there with the worker's instructions, and hands it the task.
+5. **Workers report back.** A worker's `report` reaches its orchestrator as a `[Flock]` message. When a worker opens a pull request (with `gh`), it draws the change, and that drawing shows nested inside the pull request's box on the orchestrator's canvas. The app follows the pull request's state and CI through `gh`.
+6. **Removing a worker** stops its session and removes its worktree. The app refuses while the worktree has uncommitted changes or commits that exist nowhere else, unless you confirm (the branch is then kept).
+
+## Requirements
+
+- macOS (the CLIs' login shell `PATH` is read at start; other platforms are untested)
+- Node 22 and pnpm
+- At least one coding CLI, installed and logged in:
+  - [Claude Code](https://docs.claude.com/en/docs/claude-code) (`claude`)
+  - [Codex](https://github.com/openai/codex) (`codex`)
+- Optional: [`gh`](https://cli.github.com), logged in, for pull requests
+- **A TTMI checkout beside this one** (`../ttmi`). The board, the drawing format and the voice are linked from it, not copied (`package.json`, `electron.vite.config.ts`).
+
+## Run it
+
+```sh
+pnpm install
+pnpm dev          # the app, with hot reload
+pnpm build && pnpm start
+pnpm typecheck
+pnpm test
+```
+
+`FLOCK_DATA_DIR=/some/folder pnpm start` keeps everything (agents, canvases, transcripts, worktrees) in another folder, to try things without touching your agents.
+
+## How a CLI session is driven
+
+Each CLI is an adapter (`src/main/adapters/`) behind one interface: start a session in a folder with instructions and the app's tools, send it messages, stream back what it does, stop it.
+
+| | Claude Code | Codex |
+|---|---|---|
+| Process | One long `claude --print` per session, `stream-json` in and out | One `codex exec --json` per turn; later turns use `exec … resume <thread>` |
+| Messages mid-turn | Written to stdin; Claude queues them | Held, and sent together as the next turn |
+| App's tools | `--mcp-config` with a bearer token, `--strict-mcp-config` | `-c mcp_servers.flock.*` overrides, tools approved ahead |
+| Instructions | `--append-system-prompt-file` | `-c developer_instructions=…` |
+| Resume after restart | `--resume <session id>` | `resume <thread id>` |
+
+The app serves its tools itself, over MCP on `127.0.0.1` (`src/main/mcp.ts`): `/mcp/orchestrator` and `/mcp/worker`, with a token per session, so it knows which agent is calling.
+
+## Permissions
+
+Settings → *What agents may do without asking*, set separately for orchestrators and workers:
+
+| Mode | Claude Code | Codex |
+|---|---|---|
+| **Ask me** (default) | File edits are allowed. Anything else goes to the app's `permission` tool (`--permission-prompt-tool`), which shows Allow / Deny at the top right | Codex cannot ask from `exec`, so it runs as *Edits only* |
+| **Edits only** | `acceptEdits`; anything that would prompt is refused | `workspace-write` sandbox, `approval_policy="never"` |
+| **Everything** | `--dangerously-skip-permissions` | `--dangerously-bypass-approvals-and-sandbox` |
+
+Orchestrators never get Claude's `Edit`/`Write` tools, and Codex runs them in the `read-only` sandbox.
+
+## Layout
+
+```
+src/main/        Electron main: agents and workers (agents.ts), the MCP server (mcp.ts),
+                 adapters/ (one per CLI), worktrees (git.ts), pull requests (github.ts),
+                 canvas storage (canvas.ts), the role guides (guides.ts)
+src/renderer/    The window: main.tsx (left bar, views, message box, settings),
+                 canvas.tsx (TTMI's board and walkthrough), voiceGate.ts (the voice
+                 only sounds after a press of yours)
+src/shared/      Types, the drawing guides, pull request canvases, "new since you heard it"
+voice/           TTMI's voice, used in place from the TTMI checkout
+docs/design.md   The design this started from
+```
+
+## Not in it (yet)
+
+- Several repositories in one agent; an agent is one repository.
+- Nested canvases for workers without a pull request (a repository with no GitHub remote): their work shows as a branch and a report.
+- Permission prompts for Codex.
+- Packaging (a signed `.app`).
