@@ -362,7 +362,7 @@ input:focus, textarea:focus, select:focus { border-color: var(--fg-4); box-shado
 .convo-send:disabled { background: var(--surface-3); color: var(--fg-3); box-shadow: 0 2px 0 var(--border); opacity: 1; }
 .convo-error { width: min(780px, calc(100% - 3rem)); margin: 0.45rem auto 0; color: color-mix(in srgb, #ff8fa3 62%, var(--fg)); font-size: 0.8rem; }
 /* Agents, on the left under the header: each agent, then its sub-issues. */
-.agents-sidebar { position: absolute; z-index: 40; top: 60px; bottom: 0; left: 0; display: flex; width: 74px; flex-direction: column; overflow: hidden; border-right: 1px solid var(--border); background: var(--surface); transition: width 180ms ease, box-shadow 180ms ease; }
+.agents-sidebar { position: absolute; z-index: 40; top: 60px; bottom: 0; left: 0; display: flex; width: 74px; flex-direction: column; overflow: hidden; border-right: 1px solid var(--border); background: transparent; transition: width 180ms ease, box-shadow 180ms ease; }
 /* Open (under the pointer, after a moment, so passing over it does not),
    it lies over the page at its whole width. */
 .agents-sidebar > * { width: 300px; flex-shrink: 0; box-sizing: border-box; }
