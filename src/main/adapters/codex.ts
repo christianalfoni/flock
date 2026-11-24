@@ -32,6 +32,7 @@ export function codexArgs(options: StartOptions, thread: string | undefined): st
     args.push("-s", options.readOnly ? "read-only" : "workspace-write", "-c", `approval_policy="never"`);
     for (const dir of options.writableDirs ?? []) args.push("--add-dir", dir);
   }
+  if (options.model) args.push("-m", options.model);
   if (thread) args.push("resume", thread);
   // The prompt comes on stdin.
   args.push("-");
@@ -57,7 +58,14 @@ export const codex: Adapter = {
     if (version.code !== 0) return { id: "codex", name: "Codex", installed: false, loggedIn: false };
     const login = await run("codex", ["login", "status"]);
     const loggedIn = login.code === 0 && /logged in/i.test(login.stdout + login.stderr);
-    return { id: "codex", name: "Codex", installed: true, loggedIn, version: version.stdout.trim().split(" ").pop(), ...(loggedIn ? {} : { note: "Run `codex login` in a terminal." }) };
+    // Codex's own catalog: the models it lists for people to pick.
+    const models = [{ id: "", label: "Default", detail: "What Codex is set to use" }];
+    const catalog = await run("codex", ["debug", "models"], { timeout: 20_000 });
+    try {
+      const listed = (JSON.parse(catalog.stdout) as { models?: Array<{ slug: string; display_name?: string; description?: string; visibility?: string }> }).models ?? [];
+      for (const model of listed) if (model.visibility === "list") models.push({ id: model.slug, label: model.display_name ?? model.slug, detail: model.description ?? "" });
+    } catch { /* only the default */ }
+    return { id: "codex", name: "Codex", installed: true, loggedIn, version: version.stdout.trim().split(" ").pop(), models, ...(loggedIn ? {} : { note: "Run `codex login` in a terminal." }) };
   },
 
   start(options, on): CliSession {

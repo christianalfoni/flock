@@ -778,3 +778,59 @@ body { overflow: hidden; color: var(--fg); }
 .voice-question > strong, .voice-question > span { margin-right: auto; font-size: 0.9rem; }
 .voice-question > span { flex: 1; min-width: 14rem; color: var(--fg-2); line-height: 1.5; }
 .voice-question button { display: inline-flex; align-items: center; gap: 0.35rem; }
+
+/* The new agent form: what it runs on (Settings). */
+.agent-runs-on { margin: 0.1rem 0.1rem 0; color: var(--fg-3); font-size: 0.78rem; line-height: 1.45; }
+.agent-runs-on strong { color: var(--fg-2); }
+
+/* Coding CLIs: a card each. */
+.cli-cards { display: flex; flex-direction: column; gap: 0.6rem; }
+.cli-card { display: flex; align-items: center; gap: 0.95rem; border: 1px solid var(--border); border-radius: 0.9rem; background: var(--surface); padding: 0.95rem 1.05rem; }
+.cli-card-mark { display: grid; width: 42px; height: 42px; flex: none; place-items: center; border-radius: 0.75rem; background: var(--primary-soft); color: var(--primary); }
+.cli-card-off .cli-card-mark { background: var(--surface-3); color: var(--fg-3); }
+.cli-card-main { display: flex; min-width: 0; flex: 1; flex-direction: column; gap: 0.2rem; }
+.cli-card-title { display: flex; align-items: baseline; gap: 0.5rem; }
+.cli-card-title strong { font-size: 1rem; }
+.cli-card-title .muted { font-family: var(--font-mono); font-size: 0.78rem; }
+.cli-card-about { color: var(--fg-3); font-size: 0.82rem; }
+.cli-card-install { align-self: flex-start; margin-top: 0.3rem; border-radius: 0.4rem; background: var(--code-bg); padding: 0.2rem 0.5rem; color: var(--fg-1); font-family: var(--font-mono); font-size: 0.78rem; user-select: all; }
+.cli-cards-again { display: inline-flex; align-self: flex-start; align-items: center; gap: 0.35rem; margin-top: 0.3rem; }
+
+/* How a session runs (SetupEditor): label, then its control, a row each. */
+.setup { display: flex; flex-direction: column; gap: 1.1rem; }
+.setup-row { display: grid; grid-template-columns: 6.5rem minmax(0, 1fr); align-items: center; gap: 1rem; }
+.setup-row-top { align-items: start; }
+.setup-row-top .setup-label { padding-top: 0.55rem; }
+.setup-label { color: var(--fg-2); font-size: 0.84rem; font-weight: 700; }
+.setup-row input { padding: 0.55rem 0.7rem; font-size: 0.9rem; }
+.setup-segments { display: inline-flex; justify-self: start; gap: 2px; border: 1px solid var(--border); border-radius: 0.7rem; background: var(--surface-2); padding: 3px; }
+.setup-segment { display: inline-flex; align-items: baseline; gap: 0.4rem; border: 0; border-radius: 0.5rem; background: transparent; padding: 0.4rem 0.9rem; color: var(--fg-2); font-size: 0.88rem; font-weight: 650; }
+.setup-segment small { color: var(--fg-4); font-size: 0.72rem; }
+.setup-segment:hover:not(:disabled) { color: var(--fg); }
+.setup-segment-on, .setup-segment-on:hover { background: var(--surface); color: var(--fg); box-shadow: 0 1px 2px rgb(0 0 0 / 0.25), inset 0 0 0 1px var(--border-strong); }
+.setup-models { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 0.45rem; }
+.setup-model { display: flex; flex-direction: column; gap: 0.15rem; border: 1px solid var(--border); border-radius: 0.7rem; background: var(--surface); padding: 0.55rem 0.7rem; color: var(--fg-1); text-align: left; transition: border-color 120ms, background-color 120ms; }
+.setup-model:hover { border-color: var(--border-strong); }
+.setup-model strong { font-size: 0.86rem; }
+.setup-model small { overflow: hidden; color: var(--fg-3); font-size: 0.74rem; line-height: 1.35; text-overflow: ellipsis; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.setup-model-on, .setup-model-on:hover { border-color: var(--primary); background: color-mix(in srgb, var(--primary) 9%, var(--surface)); }
+.setup-model-on strong { color: var(--primary); }
+.setup-instructions { min-height: 7rem; resize: vertical; padding: 0.65rem 0.75rem; font-size: 0.88rem; line-height: 1.55; }
+
+/* Worker kinds: a card each, opened to edit. */
+.kinds { display: flex; flex-direction: column; gap: 0.6rem; }
+.kind { border: 1px solid var(--border); border-radius: 0.9rem; background: var(--surface); transition: border-color 120ms; }
+.kind-open { border-color: var(--border-strong); }
+.kind-head { position: relative; display: flex; width: 100%; flex-direction: column; gap: 0.25rem; border: 0; background: transparent; padding: 0.9rem 2.8rem 0.9rem 1.05rem; color: var(--fg); text-align: left; }
+.kind-title { display: flex; align-items: baseline; gap: 0.55rem; }
+.kind-title strong { font-family: var(--font-display); font-size: 1rem; font-weight: 750; }
+.kind-title code { color: var(--fg-3); font-family: var(--font-mono); font-size: 0.74rem; }
+.kind-description { color: var(--fg-2); font-size: 0.85rem; line-height: 1.45; }
+.kind-runs { color: var(--primary); font-size: 0.78rem; font-weight: 650; }
+.kind-chevron { position: absolute; top: 1rem; right: 1rem; color: var(--fg-3); transition: transform 150ms; }
+.kind-open .kind-chevron { transform: rotate(180deg); }
+.kind-body { display: flex; flex-direction: column; gap: 1.1rem; border-top: 1px solid var(--border); padding: 1.1rem 1.05rem 1.05rem; }
+.kind-remove { display: inline-flex; align-self: flex-end; align-items: center; gap: 0.35rem; color: color-mix(in srgb, #ff8fa3 70%, var(--fg)); }
+.kind-add { display: flex; align-items: center; justify-content: center; gap: 0.4rem; border: 1.5px dashed var(--border-strong); border-radius: 0.9rem; background: transparent; padding: 0.8rem; color: var(--fg-2); font-size: 0.88rem; font-weight: 650; }
+.kind-add:hover { border-color: var(--fg-3); color: var(--fg); }
+.setup-short { resize: none; padding: 0.55rem 0.7rem; font-size: 0.9rem; line-height: 1.5; }

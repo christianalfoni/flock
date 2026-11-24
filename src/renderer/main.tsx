@@ -7,9 +7,9 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { ArrowLeft, ArrowUp, AudioLines, FolderGit2, PanelRight, Plus, RotateCcw, Settings as SettingsIcon, ShieldCheck, ShieldQuestion, TerminalSquare, X } from "lucide-react";
+import { ArrowLeft, ArrowUp, AudioLines, Bot, ChevronDown, FolderGit2, Trash2, Users, PanelRight, Plus, RotateCcw, Settings as SettingsIcon, ShieldCheck, ShieldQuestion, TerminalSquare, X } from "lucide-react";
 import { DEFAULT_VOICE, VOICES } from "ttmi-voices";
-import type { Agent, AppState, CliId, PermissionMode, SessionState, Settings, TranscriptEntry, Worker } from "../shared/types";
+import type { Agent, AppState, CliId, CliStatus, PermissionMode, SessionSetup, SessionState, Settings, TranscriptEntry, Worker, WorkerKind } from "../shared/types";
 import type { CanvasPullRequest } from "../shared/pullRequestCanvas";
 import { canvasFocus, useCanvasFocus } from "./canvasStep";
 import { AGENT_COLORS, AgentAvatar, agentColor } from "./avatar";
@@ -214,14 +214,16 @@ function AgentsSidebar({ state, unheard, selectedId, onSelect }: { state: AppSta
   const [creating, setCreating] = useState(false);
   const [removing, setRemoving] = useState<string>();
   const [error, setError] = useState("");
-  const ready = state.clis.filter((cli) => cli.installed);
+  const ready = state.clis.filter((item) => item.installed);
   const [name, setName] = useState("");
   const [repo, setRepo] = useState<string>();
   const [color, setColor] = useState(AGENT_COLORS[0]!);
   const [voice, setVoice] = useState(state.settings.voice ?? DEFAULT_VOICE);
-  const [cli, setCli] = useState<CliId | undefined>();
   const [busy, setBusy] = useState(false);
-  const chosenCli = cli ?? state.settings.defaultCli ?? state.clis.find((item) => item.installed && item.loggedIn)?.id ?? ready[0]?.id;
+  // Every orchestrator runs as Settings say.
+  const setup = state.settings.orchestrator;
+  const setupCli = state.clis.find((item) => item.id === setup.cli);
+  const chosenCli = setupCli?.installed ? setup.cli : undefined;
   // No agents yet: the form is open from the start.
   const open = creating || !state.agents.length;
 
@@ -230,7 +232,7 @@ function AgentsSidebar({ state, unheard, selectedId, onSelect }: { state: AppSta
     setBusy(true);
     setError("");
     try {
-      const agent = await window.dispatch.createAgent({ repo, name, cli: chosenCli, color, voice });
+      const agent = await window.dispatch.createAgent({ repo, name, color, voice });
       setCreating(false);
       setName("");
       setRepo(undefined);
@@ -307,17 +309,15 @@ function AgentsSidebar({ state, unheard, selectedId, onSelect }: { state: AppSta
               <FolderGit2 size={15} /> {repo ? repo.replace(/^\/Users\/[^/]+/, "~") : "Pick its git repository…"}
             </button>
             <label className="agent-voice">
-              <span>CLI</span>
-              <select value={chosenCli ?? ""} onChange={(event) => setCli(event.target.value as CliId)} aria-label="The coding CLI it runs on">
-                {state.clis.map((item) => <option key={item.id} value={item.id} disabled={!item.installed}>{item.name}{!item.installed ? " (not installed)" : !item.loggedIn ? " (not logged in)" : ""}</option>)}
-              </select>
-            </label>
-            <label className="agent-voice">
               <span>Voice</span>
               <select value={voice} onChange={(event) => setVoice(event.target.value)} aria-label="The voice its canvas is read in">
                 {VOICES.map((option) => <option key={option.id} value={option.id}>{option.name}</option>)}
               </select>
             </label>
+            <p className="agent-runs-on">
+              Runs on <strong>{setupCli?.name ?? setup.cli}</strong>{setup.model ? <> · {setupCli?.models?.find((model) => model.id === setup.model)?.label ?? setup.model}</> : ""}
+              {!setupCli?.installed && " (not installed)"} · set in Settings
+            </p>
             {!ready.length && <p className="agent-error">No coding CLI found. Install Claude Code or Codex, log in, then <button type="button" className="link-button" onClick={() => void window.dispatch.refreshClis()}>look again</button>.</p>}
             {error && <p className="agent-error">{error}</p>}
             <div className="agent-form-actions">
@@ -374,7 +374,7 @@ function WorkersPanel({ agent, state, selected, onSelect, onRemoved }: { agent: 
                 {worker.title}
               </p>
               <div className="sub-issue-top">
-                <span className="sub-issue-meta" title={worker.worktree}>{worker.branch} · {worker.cli}</span>
+                <span className="sub-issue-meta" title={worker.worktree}>{state.settings.workerKinds.find((kind) => kind.id === worker.kind)?.name ?? "Worker"} · {worker.cli}{worker.model ? ` ${worker.model}` : ""} · {worker.branch}</span>
                 <span className="sub-issue-session">{session.label}</span>
               </div>
               {worker.pullRequests.length > 0 && (
@@ -618,24 +618,109 @@ const MODES: { id: PermissionMode; label: string; detail: string }[] = [
   { id: "all", label: "Everything", detail: "Nothing is asked. Fast, and fully trusting." },
 ];
 
-type SettingsTab = "clis" | "voice" | "permissions";
+type SettingsTab = "clis" | "orchestrator" | "workers" | "voice" | "permissions";
 const SETTINGS_TABS: { id: SettingsTab; label: string; icon: React.ReactNode; lead: string }[] = [
   { id: "clis", label: "Coding CLIs", icon: <TerminalSquare size={16} />, lead: "Flock runs your agents on the coding CLIs on this machine, with your own login." },
+  { id: "orchestrator", label: "Orchestrator", icon: <Bot size={16} />, lead: "How every orchestrator runs: the one you talk to, who plans and starts workers. A change applies from each orchestrator's next start." },
+  { id: "workers", label: "Workers", icon: <Users size={16} />, lead: "The kinds of workers orchestrators can start. Each is for some kind of work: the orchestrator reads what each is for, and picks one per task." },
   { id: "voice", label: "Voice", icon: <AudioLines size={16} />, lead: "Agents read their walkthroughs aloud. The voice new agents get; each agent keeps the one it was made with." },
   { id: "permissions", label: "Permissions", icon: <ShieldCheck size={16} />, lead: "What agents may do without asking you. A change applies to each session from its next start: sessions not at work restart on their next message." },
 ];
 
-// A choice as cards: each says what it means, the chosen one lit.
-function Choice<T extends string>({ value, options, onChange }: { value: T; options: { id: T; label: string; detail?: string }[]; onChange(value: T): void }) {
+const CLI_ABOUT: Record<CliId, { by: string; install: string }> = {
+  claude: { by: "Anthropic's coding agent", install: "npm install -g @anthropic-ai/claude-code" },
+  codex: { by: "OpenAI's coding agent", install: "npm install -g @openai/codex" },
+};
+
+// A text field that saves when you leave it (not on every key).
+function Draft({ value, multiline, rows = 5, placeholder, onSave }: { value: string; multiline?: boolean; rows?: number; placeholder?: string; onSave(value: string): void }) {
+  const [draft, setDraft] = useState(value);
+  useEffect(() => setDraft(value), [value]);
+  const props = { value: draft, placeholder, onChange: (event: React.ChangeEvent<HTMLInputElement & HTMLTextAreaElement>) => setDraft(event.target.value), onBlur: () => { if (draft !== value) onSave(draft); } };
+  return multiline ? <textarea className={rows > 2 ? "setup-instructions" : "setup-short"} rows={rows} {...props} /> : <input {...props} />;
+}
+
+// How a session runs: its CLI, its model (from that CLI's own list), and
+// instructions of your own.
+function SetupEditor({ clis, setup, instructionsHint, onChange }: { clis: CliStatus[]; setup: SessionSetup; instructionsHint: string; onChange(setup: SessionSetup): void }) {
+  const cli = clis.find((item) => item.id === setup.cli);
+  const models = cli?.models ?? [{ id: "", label: "Default" }];
   return (
-    <div className="choice" role="radiogroup">
-      {options.map((option) => (
-        <button key={option.id} type="button" role="radio" aria-checked={value === option.id} className={`choice-card ${value === option.id ? "choice-card-on" : ""}`} onClick={() => onChange(option.id)}>
-          <span className="choice-dot" aria-hidden />
-          <span className="choice-label">{option.label}</span>
-          {option.detail && <span className="choice-detail">{option.detail}</span>}
-        </button>
-      ))}
+    <div className="setup">
+      <div className="setup-row">
+        <span className="setup-label">CLI</span>
+        <div className="setup-segments" role="radiogroup">
+          {clis.map((item) => (
+            <button key={item.id} type="button" role="radio" aria-checked={item.id === setup.cli} disabled={!item.installed} className={`setup-segment ${item.id === setup.cli ? "setup-segment-on" : ""}`} onClick={() => onChange({ ...setup, cli: item.id, model: undefined })}>
+              {item.name}{!item.installed && <small>not installed</small>}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="setup-row setup-row-top">
+        <span className="setup-label">Model</span>
+        <div className="setup-models" role="radiogroup">
+          {models.map((model) => (
+            <button key={model.id || "default"} type="button" role="radio" aria-checked={(setup.model ?? "") === model.id} className={`setup-model ${(setup.model ?? "") === model.id ? "setup-model-on" : ""}`} onClick={() => onChange({ ...setup, model: model.id || undefined })} title={model.detail}>
+              <strong>{model.label}</strong>
+              {model.detail && <small>{model.detail}</small>}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="setup-row setup-row-top">
+        <span className="setup-label">Instructions</span>
+        <Draft multiline value={setup.instructions ?? ""} placeholder={instructionsHint} onSave={(instructions) => onChange({ ...setup, instructions: instructions.trim() || undefined })} />
+      </div>
+    </div>
+  );
+}
+
+// The kinds of workers: each a card, opened to edit it.
+function WorkerKinds({ clis, kinds, onChange }: { clis: CliStatus[]; kinds: WorkerKind[]; onChange(kinds: WorkerKind[]): void }) {
+  const [openId, setOpenId] = useState<string | undefined>(kinds.length === 1 ? kinds[0]!.id : undefined);
+  const put = (kind: WorkerKind) => onChange(kinds.map((item) => (item.id === kind.id ? kind : item)));
+  const add = () => {
+    const base = clis.find((item) => item.installed)?.id ?? "claude";
+    let id = "kind";
+    for (let n = 2; kinds.some((item) => item.id === id); n += 1) id = `kind-${n}`;
+    onChange([...kinds, { id, name: "New kind", description: "What this kind of worker is for.", cli: base }]);
+    setOpenId(id);
+  };
+  const runsOn = (kind: WorkerKind) => {
+    const cli = clis.find((item) => item.id === kind.cli);
+    return `${cli?.name ?? kind.cli}${kind.model ? ` · ${cli?.models?.find((model) => model.id === kind.model)?.label ?? kind.model}` : ""}`;
+  };
+  return (
+    <div className="kinds">
+      {kinds.map((kind) => {
+        const open = openId === kind.id;
+        return (
+          <div key={kind.id} className={`kind ${open ? "kind-open" : ""}`}>
+            <button type="button" className="kind-head" onClick={() => setOpenId(open ? undefined : kind.id)} aria-expanded={open}>
+              <span className="kind-title"><strong>{kind.name}</strong><code>{kind.id}</code></span>
+              <span className="kind-description">{kind.description}</span>
+              <span className="kind-runs">{runsOn(kind)}{kind.instructions ? " · instructions" : ""}</span>
+              <ChevronDown size={16} className="kind-chevron" />
+            </button>
+            {open && (
+              <div className="kind-body">
+                <div className="setup-row">
+                  <span className="setup-label">Name</span>
+                  <Draft value={kind.name} onSave={(name) => put({ ...kind, name: name.trim() || kind.name })} />
+                </div>
+                <div className="setup-row setup-row-top">
+                  <span className="setup-label">For</span>
+                  <Draft multiline rows={2} value={kind.description} placeholder="What it is for: the orchestrator reads this to pick a kind." onSave={(description) => put({ ...kind, description: description.trim() || kind.description })} />
+                </div>
+                <SetupEditor clis={clis} setup={kind} instructionsHint="For this kind of worker, after Flock's own: how to test, which files to stay out of, how to write commits…" onChange={(setup) => put({ ...kind, ...setup })} />
+                {kinds.length > 1 && <button type="button" className="ghost kind-remove" onClick={() => onChange(kinds.filter((item) => item.id !== kind.id))}><Trash2 size={13} /> Remove this kind</button>}
+              </div>
+            )}
+          </div>
+        );
+      })}
+      <button type="button" className="kind-add" onClick={add}><Plus size={15} /> Add a kind of worker</button>
     </div>
   );
 }
@@ -680,28 +765,29 @@ function SettingsModal({ state, onClose }: { state: AppState; onClose(): void })
           <p className="settings-lead">{shown.lead}</p>
 
           {tab === "clis" && (
-            <>
-              <div className="settings-group">
-                <ul className="settings-clis">
-                  {state.clis.map((cli) => (
-                    <li key={cli.id}>
-                      <strong>{cli.name}</strong>
-                      <span className="muted">{cli.version ?? ""}</span>
-                      <span className={`settings-pill ${cli.installed && cli.loggedIn ? "settings-pill-ok" : cli.installed ? "settings-pill-warn" : ""}`}>{cli.installed ? (cli.loggedIn ? "Ready" : "Not logged in") : "Not installed"}</span>
-                      {cli.note && <span className="settings-note">{cli.note}</span>}
-                    </li>
-                  ))}
-                </ul>
-                <button type="button" className="ghost" onClick={() => void window.dispatch.refreshClis()}><RotateCcw size={13} /> Look again</button>
-              </div>
-              <h3>New agents run on</h3>
-              <Choice
-                value={settings.defaultCli ?? ""}
-                options={[{ id: "", label: "The first one ready", detail: "Claude Code, else Codex." }, ...state.clis.filter((cli) => cli.installed).map((cli) => ({ id: cli.id as string, label: cli.name }))]}
-                onChange={(id) => update({ ...settings, defaultCli: (id || undefined) as CliId | undefined })}
-              />
-            </>
+            <div className="cli-cards">
+              {state.clis.map((cli) => {
+                const about = CLI_ABOUT[cli.id];
+                return (
+                  <div key={cli.id} className={`cli-card ${cli.installed && cli.loggedIn ? "" : "cli-card-off"}`}>
+                    <span className="cli-card-mark"><TerminalSquare size={20} /></span>
+                    <div className="cli-card-main">
+                      <div className="cli-card-title"><strong>{cli.name}</strong>{cli.version && <span className="muted">{cli.version}</span>}</div>
+                      <span className="cli-card-about">{about.by}{cli.models && cli.models.length > 1 ? ` · ${cli.models.length - 1} models` : ""}</span>
+                      {!cli.installed && <code className="cli-card-install">{about.install}</code>}
+                      {cli.installed && !cli.loggedIn && cli.note && <span className="cli-card-about">{cli.note}</span>}
+                    </div>
+                    <span className={`settings-pill ${cli.installed && cli.loggedIn ? "settings-pill-ok" : cli.installed ? "settings-pill-warn" : ""}`}>{cli.installed ? (cli.loggedIn ? "Ready" : "Not logged in") : "Not installed"}</span>
+                  </div>
+                );
+              })}
+              <button type="button" className="ghost cli-cards-again" onClick={() => void window.dispatch.refreshClis()}><RotateCcw size={13} /> Look again</button>
+            </div>
           )}
+
+          {tab === "orchestrator" && <SetupEditor clis={state.clis} setup={settings.orchestrator} instructionsHint="For every orchestrator, after Flock's own: how you like plans drawn, what to check before starting workers, your team's conventions…" onChange={(orchestrator) => update({ ...settings, orchestrator })} />}
+
+          {tab === "workers" && <WorkerKinds clis={state.clis} kinds={settings.workerKinds} onChange={(workerKinds) => update({ ...settings, workerKinds })} />}
 
           {tab === "voice" && <VoiceCheck voiceId={settings.voice ?? DEFAULT_VOICE} onVoice={(id) => update({ ...settings, voice: id })} />}
 

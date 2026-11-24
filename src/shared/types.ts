@@ -5,7 +5,18 @@
 export type CliId = "claude" | "codex";
 
 // Whether a CLI is on this machine and ready to use.
-export type CliStatus = { id: CliId; name: string; installed: boolean; loggedIn: boolean; version?: string; note?: string };
+// models: what it can run, as its --model takes them (the first, "", is
+// the CLI's own default).
+export type CliStatus = { id: CliId; name: string; installed: boolean; loggedIn: boolean; version?: string; note?: string; models?: CliModel[] };
+export type CliModel = { id: string; label: string; detail?: string };
+
+// How a session runs: its CLI, model, and instructions of your own on top
+// of Flock's.
+export type SessionSetup = { cli: CliId; model?: string; instructions?: string };
+
+// A kind of worker the orchestrator can start (start_worker's kind): what
+// it is for, said to the orchestrator, and how it runs.
+export type WorkerKind = SessionSetup & { id: string; name: string; description: string };
 
 // What a session may do without asking you:
 //   ask:   file edits are fine; anything else comes to you in the app.
@@ -14,8 +25,9 @@ export type CliStatus = { id: CliId; name: string; installed: boolean; loggedIn:
 export type PermissionMode = "ask" | "edits" | "all";
 
 export type Settings = {
-  // The CLI new agents use; the first one found when none was chosen.
-  defaultCli?: CliId;
+  // How every orchestrator runs, and the kinds of workers they can start.
+  orchestrator: SessionSetup;
+  workerKinds: WorkerKind[];
   permissions: { orchestrator: PermissionMode; worker: PermissionMode };
   // The voice new agents get, chosen when you tried it (TTMI's voice ids).
   voice?: string;
@@ -49,7 +61,10 @@ export type Worker = {
   orchestrator: string; // O1
   title: string;
   task: string;
+  // The kind it was started as (Settings), and how it runs: fixed for it.
+  kind?: string;
   cli: CliId;
+  model?: string;
   branch: string;
   worktree: string;
   base: string; // the commit its branch started from

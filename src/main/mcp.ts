@@ -26,7 +26,8 @@ type Tool = {
 export type McpDeps = {
   draw(caller: Caller, input: { source?: string; playFrom?: number; ask?: string; summary?: string; pullRequest?: string }): Promise<string>;
   getCanvas(caller: Caller): Promise<string>;
-  startWorker(caller: Caller, input: { title: string; task: string; cli?: string }): Promise<string>;
+  startWorker(caller: Caller, input: { title: string; task: string; kind?: string }): Promise<string>;
+  workerKinds(caller: Caller): Promise<string>;
   messageWorker(caller: Caller, input: { worker: string; text: string }): Promise<string>;
   workers(caller: Caller): Promise<string>;
   removeWorker(caller: Caller, input: { worker: string; force: boolean }): Promise<string>;
@@ -111,11 +112,17 @@ const ORCHESTRATOR: { instructions: string; tools: Tool[] } = {
         properties: {
           title: { type: "string", description: "What it works on, in a few words. Names its branch and shows in Flock." },
           task: { type: "string", description: "Its whole task: what to build or fix, what done means, and anything it needs to know. It cannot see your conversation." },
-          cli: { type: "string", enum: ["claude", "codex"], description: "Which coding CLI runs it. Leave it out for yours." },
+          kind: { type: "string", description: "The kind of worker, by id (worker_kinds lists them, with what each is for). Leave it out for the first kind." },
         },
         required: ["title", "task"],
       },
-      run: async (caller, args) => need().startWorker(caller, { title: text(args, "title"), task: text(args, "task"), cli: optional(args, "cli") }),
+      run: async (caller, args) => need().startWorker(caller, { title: text(args, "title"), task: text(args, "task"), kind: optional(args, "kind") }),
+    },
+    {
+      name: "worker_kinds",
+      description: "The kinds of workers you can start, as the person you work for set them up: each one's id, what it is for, and the CLI and model it runs on. Pick one for start_worker's kind.",
+      inputSchema: { type: "object", properties: {} },
+      run: async (caller) => need().workerKinds(caller),
     },
     {
       name: "message_worker",

@@ -48,6 +48,13 @@ Each CLI is an adapter (`src/main/adapters/`) behind one interface: start a sess
 
 The app serves its tools itself, over MCP on `127.0.0.1` (`src/main/mcp.ts`): `/mcp/orchestrator` and `/mcp/worker`, with a token per session, so it knows which agent is calling.
 
+## Orchestrators and kinds of workers
+
+Everything about how agents run is in Settings, not set per agent:
+
+- **Orchestrator:** the CLI and model every orchestrator runs on, and instructions of your own on top of Flock's.
+- **Workers:** kinds of workers, each with a name, what it is for, a CLI, a model and instructions. An orchestrator reads them with its `worker_kinds` tool and picks one per task (`start_worker(…, kind)`). For example, a careful kind on Claude Code with Opus for features, and a quick one on Codex with a small model for one-line fixes.
+
 ## Permissions
 
 Settings → *What agents may do without asking*, set separately for orchestrators and workers:

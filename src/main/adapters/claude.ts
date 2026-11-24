@@ -33,13 +33,20 @@ export function claudeArgs(options: StartOptions, sessionId: string, guideFile: 
     // The app's own tools never need a yes.
     "--allowedTools", `mcp__${MCP_NAME}`,
     "--append-system-prompt-file", guideFile,
+    // The guide as it is now, on every start: by default a resumed session
+    // replays the one it was first made with, and would not know of new
+    // kinds of workers or instructions from Settings.
+    "--system-prompt-snapshot", "off",
   ];
+  if (options.model) args.push("--model", options.model);
   if (options.resume) args.push("--resume", options.resume);
   else args.push("--session-id", sessionId);
   if (options.permission === "all") args.push("--dangerously-skip-permissions");
   else if (options.permission === "ask") args.push("--permission-mode", "acceptEdits", "--permission-prompt-tool", `mcp__${MCP_NAME}__permission`);
   else args.push("--permission-mode", "acceptEdits", "--permission-prompts", "none");
-  if (options.readOnly) args.push("--disallowedTools", "Edit,Write,NotebookEdit");
+  // Claude Code's own question dialog has no one to answer it here: what an
+  // agent needs from you goes on its canvas (or to its orchestrator).
+  args.push("--disallowedTools", options.readOnly ? "AskUserQuestion,Edit,Write,NotebookEdit" : "AskUserQuestion");
   for (const dir of options.writableDirs ?? []) args.push("--add-dir", dir);
   return args;
 }
@@ -57,7 +64,14 @@ export const claude: Adapter = {
     const auth = await run("claude", ["auth", "status"]);
     let loggedIn = false;
     try { loggedIn = Boolean((JSON.parse(auth.stdout) as { loggedIn?: boolean }).loggedIn); } catch { loggedIn = auth.code === 0; }
-    return { id: "claude", name: "Claude Code", installed: true, loggedIn, version: version.stdout.trim().split(" ")[0], ...(loggedIn ? {} : { note: "Run `claude` in a terminal and log in." }) };
+    // Claude Code takes these names for its latest models.
+    const models = [
+      { id: "", label: "Default", detail: "What Claude Code is set to use" },
+      { id: "opus", label: "Opus", detail: "The most capable" },
+      { id: "sonnet", label: "Sonnet", detail: "Fast and capable" },
+      { id: "haiku", label: "Haiku", detail: "The fastest" },
+    ];
+    return { id: "claude", name: "Claude Code", installed: true, loggedIn, version: version.stdout.trim().split(" ")[0], models, ...(loggedIn ? {} : { note: "Run `claude` in a terminal and log in." }) };
   },
 
   start(options, on): CliSession {

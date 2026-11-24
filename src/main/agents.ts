@@ -10,7 +10,7 @@
 import { randomUUID } from "node:crypto";
 import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import type { Agent, AppState, CliId, CliStatus, PermissionMode, PermissionRequest, PullRequest, SessionState, Settings, TranscriptEntry, Worker } from "../shared/types";
+import type { Agent, AppState, CliStatus, PermissionMode, PermissionRequest, PullRequest, SessionState, Settings, TranscriptEntry, Worker, WorkerKind } from "../shared/types";
 import { drawnPullNumbers, pullsInScope } from "../shared/pullRequestCanvas";
 import { ADAPTERS, detectClis, firstReady } from "./adapters";
 import { summarize, type CliSession } from "./adapters/types";
@@ -23,7 +23,12 @@ import { revokeTokens, setMcpDeps, tokenFor, type Caller } from "./mcp";
 type Store = { agents: Agent[]; workers: Worker[]; settings: Settings; next: { O: number; W: number } };
 
 let dataDir = "";
-let store: Store = { agents: [], workers: [], settings: { permissions: { orchestrator: "ask", worker: "ask" } }, next: { O: 1, W: 1 } };
+let store: Store = { agents: [], workers: [], settings: { orchestrator: { cli: "claude" }, workerKinds: [], permissions: { orchestrator: "ask", worker: "ask" } }, next: { O: 1, W: 1 } };
+
+// The kinds of workers there are: the ones you made, else one plain kind.
+function workerKinds(): WorkerKind[] {
+  return store.settings.workerKinds.length ? store.settings.workerKinds : [{ id: "worker", name: "Worker", description: "Any coding task.", cli: store.settings.orchestrator.cli }];
+}
 let clis: CliStatus[] = [];
 let notify: (channel: string, payload?: unknown) => void = () => undefined;
 
@@ -133,8 +138,18 @@ function ensureSession(id: string): CliSession {
   const worker = isWorker ? workerOf(id) : undefined;
   const agent = agentOf(worker ? worker.orchestrator : id);
   const role = isWorker ? "worker" : "orchestrator";
-  const adapter = ADAPTERS[worker?.cli ?? agent.cli];
   const record = worker ?? agent;
+  // An orchestrator runs as Settings say now. On another CLI than its
+  // session was made with, that session cannot carry on: a new one starts.
+  const setup = store.settings.orchestrator;
+  if (!worker && agent.cli !== setup.cli) {
+    void append(id, { kind: "notice", text: `The orchestrator now runs on ${ADAPTERS[setup.cli].name} (Settings): a new session starts; the last one stays on ${ADAPTERS[agent.cli].name}.` });
+    agent.cli = setup.cli;
+    agent.sessionId = undefined;
+    save();
+  }
+  const adapter = ADAPTERS[worker?.cli ?? agent.cli];
+  const model = worker ? worker.model : setup.model;
   const token = tokenFor({ role, id });
   const turn: { reported: boolean; startedAt?: number } = { reported: false };
   turnState.set(id, turn);
@@ -142,7 +157,8 @@ function ensureSession(id: string): CliSession {
   let lastText = "";
   const cli = adapter.start({
     cwd: worker ? worker.worktree : agent.repo,
-    instructions: worker ? workerGuide(worker, agent) : orchestratorGuide(agent),
+    instructions: worker ? workerGuide(worker, agent, workerKinds().find((kind) => kind.id === worker.kind)?.instructions) : orchestratorGuide(agent, workerKinds(), setup.instructions),
+    ...(model ? { model } : {}),
     mcp: token,
     permission: permissionFor(role),
     readOnly: !isWorker,
@@ -310,18 +326,27 @@ function describeWorker(worker: Worker): string {
   const state = states.get(worker.id)?.status ?? "stopped";
   const report = worker.lastReport ? `last report (${new Date(worker.lastReport.at).toLocaleTimeString()}): ${worker.lastReport.text}` : "no report yet";
   const pulls = worker.pullRequests.length ? worker.pullRequests.map((pull) => `#${pull.number} ${standing(pull)} ${pull.url}`).join("; ") : "no pull requests";
-  return `${worker.id} "${worker.title}" (${worker.cli}, ${state === "working" ? "working now" : state}), branch ${worker.branch}, worktree ${worker.worktree}\n  ${report}\n  ${pulls}`;
+  const kind = workerKinds().find((item) => item.id === worker.kind)?.name ?? worker.kind ?? "worker";
+  return `${worker.id} "${worker.title}" (${kind}, ${worker.cli}${worker.model ? ` ${worker.model}` : ""}, ${state === "working" ? "working now" : state}), branch ${worker.branch}, worktree ${worker.worktree}\n  ${report}\n  ${pulls}`;
 }
 
-async function startWorker(orchestrator: string, input: { title: string; task: string; cli?: string }): Promise<Worker> {
+// The kinds of workers, as the orchestrator reads them.
+function describeKinds(): string {
+  return workerKinds().map((kind) => `- ${kind.id}: ${kind.name}. ${kind.description} (runs on ${ADAPTERS[kind.cli].name}${kind.model ? `, ${kind.model}` : ""}${kind.instructions ? "; has instructions of its own" : ""})`).join("\n");
+}
+
+async function startWorker(orchestrator: string, input: { title: string; task: string; kind?: string }): Promise<Worker> {
   const agent = agentOf(orchestrator);
-  const cli = (input.cli === "claude" || input.cli === "codex" ? input.cli : agent.cli) as CliId;
-  if (!clis.find((item) => item.id === cli)?.installed) throw new Error(`${cli} is not installed on this machine.`);
+  const kinds = workerKinds();
+  const kind = input.kind ? kinds.find((item) => item.id === input.kind || item.name.toLowerCase() === input.kind!.toLowerCase()) : kinds[0];
+  if (!kind) throw new Error(`There is no kind of worker "${input.kind}". The kinds:\n${describeKinds()}`);
+  const cli = kind.cli;
+  if (!clis.find((item) => item.id === cli)?.installed) throw new Error(`The ${kind.name} kind runs on ${ADAPTERS[cli].name}, which is not installed on this machine. Pick another kind, or ask the person you work for to change it in Settings.`);
   const id = `W${store.next.W++}`;
   save();
   const made = await createWorktree(agent.repo, join(dataDir, "worktrees"), id, input.title);
   gitDirs.set(id, made.gitDir);
-  const worker: Worker = { id, orchestrator, title: input.title, task: input.task, cli, branch: made.branch, worktree: made.worktree, base: made.base, pullRequests: [], createdAt: Date.now() };
+  const worker: Worker = { id, orchestrator, title: input.title, task: input.task, kind: kind.id, cli, ...(kind.model ? { model: kind.model } : {}), branch: made.branch, worktree: made.worktree, base: made.base, pullRequests: [], createdAt: Date.now() };
   store.workers.push(worker);
   save();
   await sendTo(id, `[${orchestrator}] Your task: ${input.title}\n\n${input.task}`, orchestrator);
@@ -370,8 +395,9 @@ setMcpDeps({
   getCanvas: async (caller) => canvasText(caller.id),
   async startWorker(caller, input) {
     const worker = await startWorker(caller.id, input);
-    return `Started ${worker.id} (${worker.cli}) on branch ${worker.branch}, in ${worker.worktree}. It has its task; it reports when it has news.`;
+    return `Started ${worker.id} (${workerKinds().find((kind) => kind.id === worker.kind)?.name ?? "worker"}, on ${worker.cli}${worker.model ? ` ${worker.model}` : ""}) on branch ${worker.branch}, in ${worker.worktree}. It has its task; it reports when it has news.`;
   },
+  workerKinds: async () => `The kinds of workers (start_worker's kind is the id before the colon):\n${describeKinds()}`,
   async messageWorker(caller, input) {
     const worker = ownWorker(caller, input.worker);
     await sendTo(worker.id, `[${caller.id}] ${input.text}`, caller.id);
@@ -423,10 +449,11 @@ export function answerPermission(id: string, allow: boolean, message?: string) {
 
 // ---------------------------------------------------------------- the window's actions
 
-export async function createAgent(input: { name?: string; repo: string; cli?: CliId; color?: string; voice?: string }): Promise<Agent> {
+export async function createAgent(input: { name?: string; repo: string; color?: string; voice?: string }): Promise<Agent> {
   const repo = await repositoryRoot(input.repo);
-  const cli = input.cli ?? store.settings.defaultCli ?? firstReady(clis);
-  if (!cli) throw new Error("No coding CLI found. Install Claude Code or Codex, log in, and try again.");
+  // It runs as Settings say for orchestrators.
+  const cli = store.settings.orchestrator.cli;
+  if (!clis.find((item) => item.id === cli)?.installed) throw new Error(`Orchestrators run on ${ADAPTERS[cli].name}, which is not installed. Install it, or choose another CLI in Settings.`);
   const id = `O${store.next.O++}`;
   const agent: Agent = { id, name: input.name?.trim() || repo.split("/").pop() || id, repo, cli, ...(input.color ? { color: input.color } : {}), ...(input.voice ? { voice: input.voice } : {}), createdAt: Date.now() };
   store.agents.push(agent);
@@ -467,7 +494,10 @@ export async function sendMessage(input: { id: string; text: string; ask?: { ste
 }
 
 export async function saveSettings(settings: Settings) {
-  const changed = settings.permissions.orchestrator !== store.settings.permissions.orchestrator || settings.permissions.worker !== store.settings.permissions.worker;
+  // What a session is started with: running sessions restart on their next
+  // message (a model, instructions, permissions, the orchestrator's CLI).
+  const startup = (value: Settings) => JSON.stringify([value.permissions, value.orchestrator, value.workerKinds]);
+  const changed = startup(settings) !== startup(store.settings);
   store.settings = settings;
   save();
   // Permissions are given at start: running sessions restart on their next message.
@@ -480,19 +510,32 @@ export async function refreshClis() {
   return clis;
 }
 
+let loadedOrchestrator = false;
+
 export async function startAgents(dir: string, broadcast: (channel: string, payload?: unknown) => void) {
   dataDir = dir;
   notify = broadcast;
   await mkdir(dataDir, { recursive: true });
   try {
     const loaded = JSON.parse(await readFile(storeFile(), "utf8")) as Partial<Store>;
+    loadedOrchestrator = Boolean(loaded.settings?.orchestrator);
     store = { ...store, ...loaded, settings: { ...store.settings, ...loaded.settings, permissions: { ...store.settings.permissions, ...loaded.settings?.permissions } } };
   } catch { /* a first start */ }
+  store.settings.workerKinds ??= [];
+  delete (store.settings as Settings & { defaultCli?: unknown }).defaultCli;
   for (const agent of store.agents) {
     const canvas = await readCanvas(agent.id);
     latestSources.set(agent.id, canvas.pending.at(-1)?.source ?? canvas.boardText ?? "");
   }
   await refreshClis();
+  // A first start: orchestrators run on the first CLI that is ready, and
+  // so does the first kind of worker.
+  if (!store.settings.orchestrator?.cli || !loadedOrchestrator) {
+    const cli = firstReady(clis) ?? "claude";
+    store.settings.orchestrator = { cli };
+    if (!store.settings.workerKinds.length) store.settings.workerKinds = [{ id: "worker", name: "Worker", description: "Any coding task: builds, fixes, tests, and opens a pull request.", cli }];
+    save();
+  }
   followPullRequests();
 }
 

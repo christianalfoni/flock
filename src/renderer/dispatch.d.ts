@@ -9,7 +9,7 @@ declare global {
       getState(): Promise<AppState>;
       refreshClis(): Promise<CliStatus[]>;
       saveSettings(settings: Settings): Promise<void>;
-      createAgent(input: { name?: string; repo: string; cli?: CliId; color?: string; voice?: string }): Promise<Agent>;
+      createAgent(input: { name?: string; repo: string; color?: string; voice?: string }): Promise<Agent>;
       removeAgent(id: string): Promise<void>;
       removeWorker(id: string, force?: boolean): Promise<{ removed: boolean; message: string; unsaved?: { uncommitted: number; unpushed: number } }>;
       getTranscript(id: string): Promise<TranscriptEntry[]>;

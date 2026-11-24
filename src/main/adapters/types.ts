@@ -8,6 +8,8 @@ export type StartOptions = {
   cwd: string;
   // The role's guide, through the CLI's system-prompt option.
   instructions: string;
+  // The model, as the CLI's --model takes it; its own default when left out.
+  model?: string;
   // The app's MCP server for this session: its address and its token.
   mcp: { url: string; token: string };
   permission: PermissionMode;
