@@ -23,6 +23,9 @@ declare global {
       canvasUnheard(): Promise<Record<string, number>>;
       saveCanvas(agentId: string, board: CanvasBoard, boardText: string, applied: number): Promise<void>;
       pickFolder(): Promise<string | undefined>;
+      startWindowDrag(): void;
+      moveWindow(): void;
+      zoomWindow(): void;
       openExternal(url: string): Promise<void>;
       onState(callback: (state: AppState) => void): () => void;
       onEntry(callback: (update: { id: string; entry: TranscriptEntry }) => void): () => void;

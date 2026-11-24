@@ -1,6 +1,6 @@
 // Flock's main process: the window, the app's MCP server for the sessions
 // it starts, and what the window asks of it (shared/bridge.ts).
-import { app, BrowserWindow, dialog, ipcMain, nativeTheme, net, protocol, shell } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, nativeTheme, net, protocol, screen, shell, systemPreferences } from "electron";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -85,6 +85,35 @@ for (const [, [channel]] of Object.entries(INVOKE)) {
   if (!handler) throw new Error(`No handler for ${channel}`);
   ipcMain.handle(channel, async (_event, payload) => handler(payload));
 }
+
+// The header is the window's title bar (it has none of its own): dragging
+// it moves the window, and a double-click does what macOS is set to do
+// (System Settings, Desktop & Dock: zoom, minimise, or nothing).
+// The cursor is read here, on the screen, not from the page's events: the
+// page's coordinates move with the window being moved.
+let dragFrom: { cursor: Electron.Point; window: number[] } | undefined;
+ipcMain.on("window:drag-start", (event) => {
+  const window = BrowserWindow.fromWebContents(event.sender);
+  dragFrom = window && !window.isFullScreen() ? { cursor: screen.getCursorScreenPoint(), window: window.getPosition() } : undefined;
+});
+ipcMain.on("window:drag-move", (event) => {
+  const window = BrowserWindow.fromWebContents(event.sender);
+  if (!window || !dragFrom) return;
+  const cursor = screen.getCursorScreenPoint();
+  const x = dragFrom.window[0]! + cursor.x - dragFrom.cursor.x;
+  const y = dragFrom.window[1]! + cursor.y - dragFrom.cursor.y;
+  if (window.isMaximized()) return;
+  window.setPosition(Math.round(x), Math.round(y));
+});
+ipcMain.on("window:zoom", (event) => {
+  const window = BrowserWindow.fromWebContents(event.sender);
+  if (!window) return;
+  const action = process.platform === "darwin" ? systemPreferences.getUserDefault("AppleActionOnDoubleClick", "string") : "Maximize";
+  if (action === "None") return;
+  if (action === "Minimize") return window.minimize();
+  if (window.isMaximized()) window.unmaximize();
+  else window.maximize();
+});
 
 app.setName("Flock");
 

@@ -172,7 +172,7 @@ export function AgentCanvas({ agentId, name, voice: agentVoice, pullRequests: fo
   const merging = useRef(false);
   // The shapes before a merge, the names it changed, and when it last came.
   const beforeMerge = useRef<Shape[]>(undefined);
-  const [changed, setChanged] = useState<string[]>([]);
+  const [changed, setChanged] = useState<ChangedShape[]>([]);
   const [updatedAt, setUpdatedAt] = useState<number>();
   const again = useRef(false);
   // Its asks (what you wrote while it was shown), and the newest drawing the
@@ -695,7 +695,6 @@ export function AgentCanvas({ agentId, name, voice: agentVoice, pullRequests: fo
   useEffect(() => {
     if (isPlaying && changed.length) setChanged([]);
   }, [isPlaying]);
-  const changedMarks = hosted ? "" : changed.map((item) => `.agent-canvas .sketch-rect[data-name=${JSON.stringify(item)}], .agent-canvas [data-shape-id][data-name=${JSON.stringify(item)}]`).join(", ");
   const playNew = () => {
     const start = freshRef.current[0];
     if (start === undefined) return;
@@ -854,8 +853,9 @@ export function AgentCanvas({ agentId, name, voice: agentVoice, pullRequests: fo
     >
       {tones && <style>{tones}</style>}
       {canvasNamed.current.size > 0 && <style>{`${[...canvasNamed.current.keys()].map((name) => `.agent-canvas .sketch-ref[data-ref="${name}"]`).join(", ")} { cursor: pointer; }`}</style>}
-      {changedMarks && <style>{`${changedMarks} { animation: agent-canvas-changed 1.6s ease-in-out 2, agent-canvas-changed-rest 0s 3.2s forwards; }`}</style>}
+      {!hosted && changed.length > 0 && <ChangeBadges host={host} changed={changed} />}
       <NowIsland
+        host={host}
         live={live}
         update={!hosted && !open && !isPlaying && freshShown.length > 0 ? { who: name, steps: freshShown.length, at: updatedAt } : undefined}
         onPlayNew={playNew}
@@ -1037,21 +1037,97 @@ function AskDock({ question, step, stepName, resumeName, who, where, answer, res
 
 // What a drawing changed: shapes that are new, or whose words, colour or
 // tag changed (by name; where they sit is the reader's, not news).
-function changedShapes(before: Shape[], after: Shape[]): string[] {
+type ChangedShape = { name: string; fresh: boolean };
+function changedShapes(before: Shape[], after: Shape[]): ChangedShape[] {
   const words = (shape: Shape) => JSON.stringify(Object.entries(shape).filter(([key, value]) => key !== "id" && (typeof value === "string" || typeof value === "boolean")).sort());
   const named = (shape: Shape) => (shape.kind !== "arrow" && "name" in shape && typeof shape.name === "string" ? shape.name : undefined);
   const was = new Map(before.flatMap((shape) => { const name = named(shape); return name ? [[name, words(shape)] as const] : []; }));
-  return after.flatMap((shape) => { const name = named(shape); return name && was.get(name) !== words(shape) ? [name] : []; });
+  return after.flatMap((shape) => {
+    const name = named(shape);
+    if (!name || was.get(name) === words(shape)) return [];
+    return [{ name, fresh: !was.has(name) }];
+  });
+}
+
+// How far from the canvas's bottom the top of the dock is (the walkthrough's
+// panel, or its placeholder): what sits on the dock goes there, and follows
+// it as it grows and shrinks.
+function useAboveDock(host: React.RefObject<HTMLDivElement | null>, on: boolean) {
+  const [bottom, setBottom] = useState(140);
+  useLayoutEffect(() => {
+    const node = host.current;
+    if (!node || !on) return;
+    let panel: Element | null = null;
+    const sizes = new ResizeObserver(() => measure());
+    const measure = () => {
+      const next = node.querySelector(".sketch-steps, .agent-canvas-dock-placeholder");
+      if (next !== panel) {
+        if (panel) sizes.unobserve(panel);
+        panel = next;
+        if (panel) sizes.observe(panel);
+      }
+      if (!panel) return;
+      setBottom(Math.round(node.getBoundingClientRect().bottom - panel.getBoundingClientRect().top + 10));
+    };
+    const watcher = new MutationObserver(measure);
+    watcher.observe(node, { childList: true, subtree: true });
+    sizes.observe(node);
+    measure();
+    return () => { watcher.disconnect(); sizes.disconnect(); };
+  }, [host, on]);
+  return bottom;
+}
+
+// A badge on each shape a drawing added or changed (New, Updated), at its
+// top right corner, following it as the board pans and zooms. They go when
+// the walkthrough plays.
+function ChangeBadges({ host, changed }: { host: React.RefObject<HTMLDivElement | null>; changed: ChangedShape[] }) {
+  const badges = useRef(new Map<string, HTMLSpanElement>());
+  useEffect(() => {
+    let frame = 0;
+    const place = () => {
+      const node = host.current;
+      if (node) {
+        const box = node.getBoundingClientRect();
+        for (const item of changed) {
+          const badge = badges.current.get(item.name);
+          if (!badge) continue;
+          const name = JSON.stringify(item.name);
+          const shape = node.querySelector(`.sketch-rect[data-name=${name}], [data-shape-id][data-name=${name}]`);
+          const rect = shape?.getBoundingClientRect();
+          if (!rect || !rect.width) {
+            badge.style.visibility = "hidden";
+            continue;
+          }
+          badge.style.visibility = "visible";
+          badge.style.transform = `translate(${Math.round(rect.right - box.left - 10)}px, ${Math.round(rect.top - box.top)}px) translate(-100%, -55%)`;
+        }
+      }
+      frame = requestAnimationFrame(place);
+    };
+    frame = requestAnimationFrame(place);
+    return () => cancelAnimationFrame(frame);
+  }, [host, changed]);
+  return (
+    <div className="change-badges" aria-hidden>
+      {changed.map((item) => (
+        <span key={item.name} className={`change-badge ${item.fresh ? "change-badge-new" : ""}`} ref={(element) => { if (element) badges.current.set(item.name, element); else badges.current.delete(item.name); }}>
+          {item.fresh ? "New" : "Updated"}
+        </span>
+      ))}
+    </div>
+  );
 }
 
 // The canvas's "now": who is at work (a row each: avatar, name, latest
 // line), and, when a drawing brought steps you have not heard, the update
 // with a way to play just what is new. At the top of the canvas, under the
 // views' switch; the dock at the bottom stays yours.
-function NowIsland({ live, update, onPlayNew }: { live: LiveRow[]; update?: { who: string; steps: number; at?: number }; onPlayNew(): void }) {
+function NowIsland({ host, live, update, onPlayNew }: { host: React.RefObject<HTMLDivElement | null>; live: LiveRow[]; update?: { who: string; steps: number; at?: number }; onPlayNew(): void }) {
+  const bottom = useAboveDock(host, Boolean(live.length || update));
   if (!live.length && !update) return null;
   return (
-    <div className="now-island" aria-live="polite">
+    <div className="now-island" aria-live="polite" style={{ bottom }}>
       {update && (
         <div className="now-row now-update">
           <Sparkles size={15} className="now-update-mark" />

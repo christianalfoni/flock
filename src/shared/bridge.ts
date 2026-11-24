@@ -28,6 +28,15 @@ export const INVOKE: Record<string, [channel: string, payload: Payload]> = {
   openExternal: ["external:open", one],
 };
 
+// Notices: the window tells the app something and does not wait.
+export const SEND: Record<string, [channel: string, payload: Payload]> = {
+  // The header drags the window (from where the cursor is when it starts,
+  // following the cursor) and zooms it.
+  startWindowDrag: ["window:drag-start", none],
+  moveWindow: ["window:drag-move", none],
+  zoomWindow: ["window:zoom", none],
+};
+
 // Updates the app pushes to the window, by the method that listens for them.
 export const EVENTS: Record<string, string> = {
   onState: "app:state",

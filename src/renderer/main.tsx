@@ -102,6 +102,7 @@ function App() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [state?.agents]);
+  const windowBar = useWindowBar();
   if (!state) return <div className="app-loading" />;
   const worker = state.workers.find((item) => item.id === selected);
   const agent = state.agents.find((item) => item.id === (worker ? worker.orchestrator : selected)) ?? state.agents[0];
@@ -112,9 +113,10 @@ function App() {
   const onboarding = !state.settings.onboarded && !state.agents.length;
   const showWorkers = Boolean(agent && !settings && (!onCanvas || workersPanel));
   return (
-    <main className="h-screen overflow-hidden bg-[var(--bg)] text-[var(--fg)]" style={{ "--sidebar": `${SIDEBAR_WIDTH}px`, "--page-right": `${showWorkers ? RIGHT_WIDTH : 0}px` } as React.CSSProperties}>
-      {/* The whole bar drags the window, and a double-click zooms it. */}
-      <header className="drag-region relative flex h-[60px] items-center px-4">
+    <main className={`h-screen overflow-hidden bg-[var(--bg)] text-[var(--fg)] ${onCanvas && !settings && !onboarding ? "app-canvas" : ""}`} style={{ "--sidebar": `${SIDEBAR_WIDTH}px`, "--page-right": `${showWorkers ? RIGHT_WIDTH : 0}px` } as React.CSSProperties}>
+      {/* The window's title bar: dragging it moves the window, a double-click
+          zooms it (windowBar). Over the canvas, which goes under it. */}
+      <header className="app-header relative flex h-[60px] items-center px-4" {...windowBar}>
         {agent && !settings && (
           <div className="header-agent no-drag" title={`${agent.id} · ${agent.repo} · ${agent.cli}${worker ? `\n${worker.id}: ${worker.worktree}` : ""}`}>
             <AgentAvatar seed={agent.id} color={agentColor(agent)} size={28} working={working(state.sessions[agent.id])} />
@@ -133,7 +135,7 @@ function App() {
 
       {!onboarding && <AgentsSidebar state={state} unheard={unheard} selectedId={settings ? undefined : agent?.id} onSelect={(id) => { setSelected(id); setSettings(false); }} />}
 
-      <section className="content-area" style={{ right: "var(--page-right)" }}>
+      <section className="content-area" style={{ right: onCanvas && !settings ? 0 : "var(--page-right)" }}>
         {onboarding ? (
           <Onboarding state={state} onDone={(next) => void window.dispatch.saveSettings(next)} />
         ) : settings ? (
@@ -156,6 +158,39 @@ function App() {
       <Permissions state={state} />
     </main>
   );
+}
+
+// The header as the window's title bar: a press on it (not on a button)
+// drags the window, following the pointer even outside the window; a
+// double-click zooms it, as macOS is set to.
+function useWindowBar() {
+  const drag = useRef<{ id: number; x: number; y: number; moved: boolean }>(undefined);
+  const frame = useRef(0);
+  const interactive = (target: EventTarget | null) => Boolean((target as Element | null)?.closest?.("button, a, input, select, textarea, [role='tab']"));
+  return {
+    onPointerDown(event: React.PointerEvent<HTMLElement>) {
+      if (event.button !== 0 || interactive(event.target)) return;
+      drag.current = { id: event.pointerId, x: event.clientX, y: event.clientY, moved: false };
+      event.currentTarget.setPointerCapture(event.pointerId);
+      window.dispatch.startWindowDrag();
+    },
+    onPointerMove(event: React.PointerEvent<HTMLElement>) {
+      const held = drag.current;
+      if (!held || held.id !== event.pointerId) return;
+      // A press is not a drag until the pointer has moved a little (a
+      // double-click stays a double-click).
+      if (!held.moved && Math.abs(event.clientX - held.x) + Math.abs(event.clientY - held.y) < 3) return;
+      held.moved = true;
+      cancelAnimationFrame(frame.current);
+      frame.current = requestAnimationFrame(() => window.dispatch.moveWindow());
+    },
+    onPointerUp(event: React.PointerEvent<HTMLElement>) {
+      if (drag.current?.id === event.pointerId) drag.current = undefined;
+    },
+    onDoubleClick(event: React.MouseEvent<HTMLElement>) {
+      if (!interactive(event.target)) window.dispatch.zoomWindow();
+    },
+  };
 }
 
 // ---------------------------------------------------------------- the left bar
