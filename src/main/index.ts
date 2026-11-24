@@ -37,8 +37,10 @@ async function createWindow() {
     minWidth: 900,
     minHeight: 600,
     title: "Flock",
-    // The system's own title bar, as Flock has in its app window: the
-    // window's buttons and name, double-click to zoom, drag to move.
+    // No title bar: the page's header is where the window is dragged, and a
+    // double-click on it zooms the window (macOS does that for a draggable
+    // area, as its own title bar does, by the system's setting).
+    titleBarStyle: "hiddenInset",
     backgroundColor: nativeTheme.shouldUseDarkColors ? "#0e0e10" : "#f7f6fe",
     webPreferences: { preload: join(__dirname, "../preload/index.mjs"), sandbox: false, contextIsolation: true },
   });

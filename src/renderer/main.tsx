@@ -113,11 +113,8 @@ function App() {
   const showWorkers = Boolean(agent && !settings && (!onCanvas || workersPanel));
   return (
     <main className="h-screen overflow-hidden bg-[var(--bg)] text-[var(--fg)]" style={{ "--sidebar": `${SIDEBAR_WIDTH}px`, "--page-right": `${showWorkers ? RIGHT_WIDTH : 0}px` } as React.CSSProperties}>
-      <header className="relative flex h-[60px] items-center px-6">
-        <h1 className="app-title">
-          <img className="app-title-mark" src={markUrl} alt="" />
-          Flock
-        </h1>
+      {/* The whole bar drags the window, and a double-click zooms it. */}
+      <header className="drag-region relative flex h-[60px] items-center px-4">
         {agent && !settings && (
           <div className="header-agent no-drag" title={`${agent.id} · ${agent.repo} · ${agent.cli}${worker ? `\n${worker.id}: ${worker.worktree}` : ""}`}>
             <AgentAvatar seed={agent.id} color={agentColor(agent)} size={28} working={working(state.sessions[agent.id])} />
@@ -213,6 +210,11 @@ function AgentsSidebar({ state, unheard, selectedId, onSelect }: { state: AppSta
 
   return (
     <aside className={`agents-sidebar ${open ? "agents-sidebar-open" : ""}`}>
+      {/* The app's mark, at the top of its agents. */}
+      <div className="sidebar-mark" title="Flock">
+        <img src={markUrl} alt="Flock" />
+        <span className="app-title">Flock</span>
+      </div>
       <div className="agents-list">
         {state.agents.map((agent, index) => {
           const workers = state.workers.filter((worker) => worker.orchestrator === agent.id);
