@@ -677,3 +677,43 @@ body { overflow: hidden; color: var(--fg); }
 @media (prefers-reduced-motion: reduce) { .change-badge { animation: none; } }
 /* Over the canvas the agent's name centres on the window, as the dock does. */
 .app-canvas .header-agent { right: 0; left: 0; }
+
+/* --- Settings: a modal over the page, its sections as tabs (main.tsx) --- */
+.modal-backdrop { position: fixed; z-index: 70; inset: 0; display: grid; place-items: center; padding: 2rem; background: rgb(0 0 0 / 0.45); backdrop-filter: blur(3px); animation: modal-fade 160ms ease-out; }
+@keyframes modal-fade { from { opacity: 0; } }
+.modal { display: flex; width: min(820px, 100%); height: min(600px, calc(100vh - 4rem)); overflow: hidden; border: 1px solid var(--border); border-radius: 1.1rem; background: var(--surface); box-shadow: 0 24px 80px rgb(0 0 0 / 0.5); animation: modal-rise 200ms cubic-bezier(0.2, 0.9, 0.3, 1.1); }
+@keyframes modal-rise { from { opacity: 0; transform: translateY(8px) scale(0.98); } }
+.settings-nav { display: flex; width: 210px; flex: none; flex-direction: column; gap: 2px; border-right: 1px solid var(--border); background: var(--surface-2); padding: 1.2rem 0.7rem; }
+.settings-nav h1 { margin: 0 0 0.9rem 0.55rem; font-family: var(--font-display); font-size: 1.2rem; font-weight: 750; letter-spacing: -0.01em; }
+.settings-tab { display: flex; align-items: center; gap: 0.6rem; border: 0; border-radius: 0.6rem; background: transparent; padding: 0.55rem 0.65rem; color: var(--fg-2); font-size: 0.9rem; font-weight: 600; text-align: left; }
+.settings-tab:hover { background: var(--surface-3); color: var(--fg); }
+.settings-tab-on, .settings-tab-on:hover { background: var(--primary-soft); color: var(--primary); }
+.settings-body { min-width: 0; flex: 1; overflow-y: auto; padding: 1.2rem 1.5rem 1.6rem; }
+.settings-head { display: flex; align-items: center; justify-content: space-between; }
+.settings-head h2 { margin: 0; font-family: var(--font-display); font-size: 1.25rem; font-weight: 750; }
+.settings-lead { margin: 0.4rem 0 1.2rem; color: var(--fg-2); font-size: 0.88rem; line-height: 1.55; }
+.settings-body h3 { margin: 1.4rem 0 0.6rem; font-size: 0.9rem; font-weight: 700; }
+.settings-body h3:first-of-type { margin-top: 0.4rem; }
+.settings-group { display: flex; flex-direction: column; align-items: flex-start; gap: 0.7rem; }
+.settings-group .ghost { display: inline-flex; align-items: center; gap: 0.35rem; }
+.settings-clis { display: flex; width: 100%; flex-direction: column; margin: 0; padding: 0; list-style: none; border: 1px solid var(--border); border-radius: 0.75rem; }
+.settings-clis li { display: flex; flex-wrap: wrap; align-items: center; gap: 0.6rem; padding: 0.7rem 0.9rem; font-size: 0.9rem; }
+.settings-clis li + li { border-top: 1px solid var(--border); }
+.settings-clis .settings-pill { margin-left: auto; }
+.settings-note { flex-basis: 100%; color: var(--fg-3); font-size: 0.8rem; }
+.settings-pill { border-radius: 999px; background: var(--surface-3); padding: 0.15rem 0.6rem; color: var(--fg-3); font-size: 0.74rem; font-weight: 700; }
+.settings-pill-ok { background: color-mix(in srgb, #3ee08f 16%, transparent); color: #3ee08f; }
+.settings-pill-warn { background: color-mix(in srgb, var(--working) 18%, transparent); color: var(--working); }
+/* A choice as cards (Choice). */
+.choice { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.5rem; }
+.choice-card { display: grid; grid-template-columns: auto 1fr; align-content: start; gap: 0.25rem 0.55rem; border: 1px solid var(--border); border-radius: 0.75rem; background: var(--surface); padding: 0.7rem 0.8rem; color: var(--fg-1); text-align: left; transition: border-color 120ms, background-color 120ms; }
+.choice-card:hover { border-color: var(--border-strong); }
+.choice-card-on, .choice-card-on:hover { border-color: var(--primary); background: color-mix(in srgb, var(--primary) 8%, var(--surface)); }
+.choice-dot { width: 14px; height: 14px; margin-top: 2px; border: 2px solid var(--border-strong); border-radius: 999px; }
+.choice-card-on .choice-dot { border-color: var(--primary); background: radial-gradient(circle, var(--primary) 0 3px, transparent 3.5px); }
+.choice-label { font-size: 0.9rem; font-weight: 700; }
+.choice-detail { grid-column: 2; color: var(--fg-3); font-size: 0.78rem; line-height: 1.45; }
+.settings-body .voice-check { margin-top: 0; }
+.settings-body .choice { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.settings-footnote { margin: 1.2rem 0 0; color: var(--fg-3); font-size: 0.78rem; line-height: 1.5; }
+.settings-body > div + div > h3 { margin-top: 1.6rem; }

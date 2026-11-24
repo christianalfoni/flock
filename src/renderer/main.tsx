@@ -7,7 +7,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { ArrowLeft, ArrowUp, FolderGit2, PanelRight, Plus, RotateCcw, Settings as SettingsIcon, ShieldQuestion, X } from "lucide-react";
+import { ArrowLeft, ArrowUp, AudioLines, FolderGit2, PanelRight, Plus, RotateCcw, Settings as SettingsIcon, ShieldCheck, ShieldQuestion, TerminalSquare, X } from "lucide-react";
 import { DEFAULT_VOICE, VOICES } from "ttmi-voices";
 import type { Agent, AppState, CliId, PermissionMode, SessionState, Settings, TranscriptEntry, Worker } from "../shared/types";
 import type { CanvasPullRequest } from "../shared/pullRequestCanvas";
@@ -111,13 +111,13 @@ function App() {
   const onCanvas = Boolean(agent && !worker && view === "canvas");
   // The first run, before any agent: the guide (onboarding.tsx).
   const onboarding = !state.settings.onboarded && !state.agents.length;
-  const showWorkers = Boolean(agent && !settings && (!onCanvas || workersPanel));
+  const showWorkers = Boolean(agent && (!onCanvas || workersPanel));
   return (
-    <main className={`h-screen overflow-hidden bg-[var(--bg)] text-[var(--fg)] ${onCanvas && !settings && !onboarding ? "app-canvas" : ""}`} style={{ "--sidebar": `${SIDEBAR_WIDTH}px`, "--page-right": `${showWorkers ? RIGHT_WIDTH : 0}px` } as React.CSSProperties}>
+    <main className={`h-screen overflow-hidden bg-[var(--bg)] text-[var(--fg)] ${onCanvas && !onboarding ? "app-canvas" : ""}`} style={{ "--sidebar": `${SIDEBAR_WIDTH}px`, "--page-right": `${showWorkers ? RIGHT_WIDTH : 0}px` } as React.CSSProperties}>
       {/* The window's title bar: dragging it moves the window, a double-click
           zooms it (windowBar). Over the canvas, which goes under it. */}
       <header className="app-header relative flex h-[60px] items-center px-4" {...windowBar}>
-        {agent && !settings && (
+        {agent && (
           <div className="header-agent no-drag" title={`${agent.id} · ${agent.repo} · ${agent.cli}${worker ? `\n${worker.id}: ${worker.worktree}` : ""}`}>
             <AgentAvatar seed={agent.id} color={agentColor(agent)} size={28} working={working(state.sessions[agent.id])} />
             <span className="agent-bar-name">{agent.name}</span>
@@ -126,20 +126,18 @@ function App() {
           </div>
         )}
         <div className="no-drag header-actions">
-          {agent && !settings && (
+          {agent && (
             <button type="button" className="icon-button" title="Restart its session (it resumes where it was)" onClick={() => void window.dispatch.restartSession(worker?.id ?? agent.id)}><RotateCcw size={15} /></button>
           )}
           <button type="button" className="icon-button" title="Settings" aria-pressed={settings} onClick={() => setSettings((open) => !open)}><SettingsIcon size={16} /></button>
         </div>
       </header>
 
-      {!onboarding && <AgentsSidebar state={state} unheard={unheard} selectedId={settings ? undefined : agent?.id} onSelect={(id) => { setSelected(id); setSettings(false); }} />}
+      {!onboarding && <AgentsSidebar state={state} unheard={unheard} selectedId={agent?.id} onSelect={setSelected} />}
 
-      <section className="content-area" style={{ right: onCanvas && !settings ? 0 : "var(--page-right)" }}>
+      <section className="content-area" style={{ right: onCanvas ? 0 : "var(--page-right)" }}>
         {onboarding ? (
           <Onboarding state={state} onDone={(next) => void window.dispatch.saveSettings(next)} />
-        ) : settings ? (
-          <SettingsPanel state={state} onClose={() => setSettings(false)} />
         ) : !agent ? (
           <div className="grid h-full place-items-center">
             <div className="agents-welcome">
@@ -156,6 +154,7 @@ function App() {
 
       {showWorkers && agent && <WorkersPanel agent={agent} state={state} selected={worker?.id} onSelect={setSelected} onRemoved={() => setSelected(agent.id)} />}
       <Permissions state={state} />
+      {settings && <SettingsModal state={state} onClose={() => setSettings(false)} />}
     </main>
   );
 }
@@ -609,55 +608,106 @@ function Conversation({ id, agent, worker, state, view, onView, onBack, panel }:
 // ---------------------------------------------------------------- settings
 
 const MODES: { id: PermissionMode; label: string; detail: string }[] = [
-  { id: "ask", label: "Ask me", detail: "File edits are fine; anything else (shell commands, the web) asks you here first. Codex cannot ask from its headless mode, so it runs as Edits only." },
-  { id: "edits", label: "Edits only", detail: "File edits are fine; anything that would need a yes is refused." },
-  { id: "all", label: "Everything", detail: "No questions asked (Claude's bypassPermissions, Codex without its sandbox). Fast, and fully trusting." },
+  { id: "ask", label: "Ask me", detail: "Edits are fine. Commands and the web ask you first." },
+  { id: "edits", label: "Edits only", detail: "Edits are fine. Anything else is refused." },
+  { id: "all", label: "Everything", detail: "No questions asked. Fast, and fully trusting." },
 ];
 
-function SettingsPanel({ state, onClose }: { state: AppState; onClose(): void }) {
+type SettingsTab = "clis" | "voice" | "permissions";
+const SETTINGS_TABS: { id: SettingsTab; label: string; icon: React.ReactNode; lead: string }[] = [
+  { id: "clis", label: "Coding CLIs", icon: <TerminalSquare size={16} />, lead: "Flock runs your agents on the coding CLIs on this machine, with your own login." },
+  { id: "voice", label: "Voice", icon: <AudioLines size={16} />, lead: "Agents read their walkthroughs aloud. The voice new agents get; each agent keeps the one it was made with." },
+  { id: "permissions", label: "Permissions", icon: <ShieldCheck size={16} />, lead: "What agents may do without asking you. A change applies to each session from its next start: sessions not at work restart on their next message." },
+];
+
+// A choice as cards: each says what it means, the chosen one lit.
+function Choice<T extends string>({ value, options, onChange }: { value: T; options: { id: T; label: string; detail?: string }[]; onChange(value: T): void }) {
+  return (
+    <div className="choice" role="radiogroup">
+      {options.map((option) => (
+        <button key={option.id} type="button" role="radio" aria-checked={value === option.id} className={`choice-card ${value === option.id ? "choice-card-on" : ""}`} onClick={() => onChange(option.id)}>
+          <span className="choice-dot" aria-hidden />
+          <span className="choice-label">{option.label}</span>
+          {option.detail && <span className="choice-detail">{option.detail}</span>}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+// Settings, over the page: a modal with its sections as tabs on the left.
+// Esc or a click outside closes it.
+function SettingsModal({ state, onClose }: { state: AppState; onClose(): void }) {
   const [settings, setSettings] = useState<Settings>(state.settings);
+  const [tab, setTab] = useState<SettingsTab>(() => (recall("flock.settingsTab") as SettingsTab) ?? "clis");
+  useEffect(() => remember("flock.settingsTab", tab), [tab]);
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      event.stopPropagation();
+      onClose();
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, [onClose]);
   const update = (next: Settings) => {
     setSettings(next);
     void window.dispatch.saveSettings(next);
   };
+  const shown = SETTINGS_TABS.find((item) => item.id === tab)!;
   return (
-    <div className="panel">
-      <div className="panel-card">
-        <div className="panel-head">
+    <div className="modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+      <div className="modal settings" role="dialog" aria-modal="true" aria-label="Settings">
+        <nav className="settings-nav">
           <h1>Settings</h1>
-          <button type="button" className="icon-button" onClick={onClose} title="Close"><X size={16} /></button>
-        </div>
-        <h2>Coding CLIs</h2>
-        <ul className="cli-list">
-          {state.clis.map((cli) => (
-            <li key={cli.id}>
-              <span className={`agent-mark ${cli.installed && cli.loggedIn ? "agent-mark-idle" : cli.installed ? "agent-mark-working" : "agent-mark-none"}`} />
-              <strong>{cli.name}</strong>
-              <span className="muted">{cli.installed ? `${cli.version ?? ""}${cli.loggedIn ? "" : " · not logged in"}` : "not installed"}</span>
-              {cli.note && <span className="muted">{cli.note}</span>}
-            </li>
+          {SETTINGS_TABS.map((item) => (
+            <button key={item.id} type="button" className={`settings-tab ${tab === item.id ? "settings-tab-on" : ""}`} aria-current={tab === item.id ? "page" : undefined} onClick={() => setTab(item.id)}>
+              {item.icon}{item.label}
+            </button>
           ))}
-        </ul>
-        <button type="button" className="link-button" onClick={() => void window.dispatch.refreshClis()}>Look again</button>
-        <label>Default for new agents</label>
-        <select value={settings.defaultCli ?? ""} onChange={(event) => update({ ...settings, defaultCli: (event.target.value || undefined) as CliId | undefined })}>
-          <option value="">The first one ready</option>
-          {state.clis.filter((cli) => cli.installed).map((cli) => <option key={cli.id} value={cli.id}>{cli.name}</option>)}
-        </select>
-        <h2>Voice</h2>
-        <small>The voice new agents get. Each agent keeps the one it was made with.</small>
-        <VoiceCheck voiceId={settings.voice ?? DEFAULT_VOICE} onVoice={(id) => update({ ...settings, voice: id })} />
-        <h2>What agents may do without asking</h2>
-        {(["orchestrator", "worker"] as const).map((role) => (
-          <div key={role}>
-            <label>{role === "orchestrator" ? "Orchestrators (they plan; they never edit files)" : "Workers (each in its own worktree)"}</label>
-            <select value={settings.permissions[role]} onChange={(event) => update({ ...settings, permissions: { ...settings.permissions, [role]: event.target.value as PermissionMode } })}>
-              {MODES.map((mode) => <option key={mode.id} value={mode.id}>{mode.label}</option>)}
-            </select>
-            <small>{MODES.find((mode) => mode.id === settings.permissions[role])?.detail}</small>
+        </nav>
+        <section className="settings-body">
+          <div className="settings-head">
+            <h2>{shown.label}</h2>
+            <button type="button" className="icon-button" onClick={onClose} title="Close (Esc)"><X size={16} /></button>
           </div>
-        ))}
-        <small>A change applies to each session from its next start: sessions not at work restart on their next message.</small>
+          <p className="settings-lead">{shown.lead}</p>
+
+          {tab === "clis" && (
+            <>
+              <div className="settings-group">
+                <ul className="settings-clis">
+                  {state.clis.map((cli) => (
+                    <li key={cli.id}>
+                      <strong>{cli.name}</strong>
+                      <span className="muted">{cli.version ?? ""}</span>
+                      <span className={`settings-pill ${cli.installed && cli.loggedIn ? "settings-pill-ok" : cli.installed ? "settings-pill-warn" : ""}`}>{cli.installed ? (cli.loggedIn ? "Ready" : "Not logged in") : "Not installed"}</span>
+                      {cli.note && <span className="settings-note">{cli.note}</span>}
+                    </li>
+                  ))}
+                </ul>
+                <button type="button" className="ghost" onClick={() => void window.dispatch.refreshClis()}><RotateCcw size={13} /> Look again</button>
+              </div>
+              <h3>New agents run on</h3>
+              <Choice
+                value={settings.defaultCli ?? ""}
+                options={[{ id: "", label: "The first one ready", detail: "Claude Code, else Codex." }, ...state.clis.filter((cli) => cli.installed).map((cli) => ({ id: cli.id as string, label: cli.name }))]}
+                onChange={(id) => update({ ...settings, defaultCli: (id || undefined) as CliId | undefined })}
+              />
+            </>
+          )}
+
+          {tab === "voice" && <VoiceCheck voiceId={settings.voice ?? DEFAULT_VOICE} onVoice={(id) => update({ ...settings, voice: id })} />}
+
+          {tab === "permissions" && (["orchestrator", "worker"] as const).map((role) => (
+            <div key={role}>
+              <h3>{role === "orchestrator" ? "Orchestrators" : "Workers"}<span className="muted"> · {role === "orchestrator" ? "they plan, and never edit files" : "each in its own worktree"}</span></h3>
+              <Choice value={settings.permissions[role]} options={MODES} onChange={(mode) => update({ ...settings, permissions: { ...settings.permissions, [role]: mode } })} />
+            </div>
+          ))}
+          {tab === "permissions" && <p className="settings-footnote">Codex cannot ask from its headless mode: with Ask me it runs as Edits only. Everything is Claude Code's bypassPermissions, and Codex without its sandbox.</p>}
+        </section>
       </div>
     </div>
   );
