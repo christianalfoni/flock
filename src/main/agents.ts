@@ -136,7 +136,7 @@ function ensureSession(id: string): CliSession {
   const adapter = ADAPTERS[worker?.cli ?? agent.cli];
   const record = worker ?? agent;
   const token = tokenFor({ role, id });
-  const turn = { reported: false };
+  const turn: { reported: boolean; startedAt?: number } = { reported: false };
   turnState.set(id, turn);
   setSession(id, { status: "starting", error: undefined, activity: undefined });
   let lastText = "";
@@ -158,6 +158,7 @@ function ensureSession(id: string): CliSession {
         break;
       case "turn-start":
         turn.reported = false;
+        turn.startedAt = Date.now();
         lastText = "";
         setSession(id, { status: "working", activity: { label: "Working…" }, error: undefined });
         break;
@@ -176,6 +177,7 @@ function ensureSession(id: string): CliSession {
       case "turn-end":
         setSession(id, { status: "idle", activity: undefined, ...(event.error ? { error: event.error } : {}) });
         if (event.error) void append(id, { kind: "notice", text: event.error, tone: "warn" });
+        void append(id, { kind: "turn", ...(turn.startedAt ? { durationMs: Date.now() - turn.startedAt } : {}), ...(event.error ? { error: true } : {}) });
         // A worker that stops without saying where it is: its orchestrator
         // hears that, with its last words.
         if (worker && !turn.reported && store.workers.includes(worker)) {
@@ -194,7 +196,7 @@ function ensureSession(id: string): CliSession {
 }
 
 // Whether a session reported in its current turn.
-const turnState = new Map<string, { reported: boolean }>();
+const turnState = new Map<string, { reported: boolean; startedAt?: number }>();
 // Each worker's repository git folder, which its sandbox may write to.
 const gitDirs = new Map<string, string>();
 
@@ -415,12 +417,12 @@ export function answerPermission(id: string, allow: boolean, message?: string) {
 
 // ---------------------------------------------------------------- the window's actions
 
-export async function createAgent(input: { name?: string; repo: string; cli?: CliId; voice?: string }): Promise<Agent> {
+export async function createAgent(input: { name?: string; repo: string; cli?: CliId; color?: string; voice?: string }): Promise<Agent> {
   const repo = await repositoryRoot(input.repo);
   const cli = input.cli ?? store.settings.defaultCli ?? firstReady(clis);
   if (!cli) throw new Error("No coding CLI found. Install Claude Code or Codex, log in, and try again.");
   const id = `O${store.next.O++}`;
-  const agent: Agent = { id, name: input.name?.trim() || repo.split("/").pop() || id, repo, cli, ...(input.voice ? { voice: input.voice } : {}), createdAt: Date.now() };
+  const agent: Agent = { id, name: input.name?.trim() || repo.split("/").pop() || id, repo, cli, ...(input.color ? { color: input.color } : {}), ...(input.voice ? { voice: input.voice } : {}), createdAt: Date.now() };
   store.agents.push(agent);
   save();
   return agent;

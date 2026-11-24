@@ -9,7 +9,7 @@ declare global {
       getState(): Promise<AppState>;
       refreshClis(): Promise<CliStatus[]>;
       saveSettings(settings: Settings): Promise<void>;
-      createAgent(input: { name?: string; repo: string; cli?: CliId; voice?: string }): Promise<Agent>;
+      createAgent(input: { name?: string; repo: string; cli?: CliId; color?: string; voice?: string }): Promise<Agent>;
       removeAgent(id: string): Promise<void>;
       removeWorker(id: string, force?: boolean): Promise<{ removed: boolean; message: string; unsaved?: { uncommitted: number; unpushed: number } }>;
       getTranscript(id: string): Promise<TranscriptEntry[]>;
@@ -20,6 +20,7 @@ declare global {
       getPullDrawings(): Promise<Record<string, PullRequestDrawing>>;
       closeCanvasAsk(agentId: string, ask: string): Promise<void>;
       markCanvasHeard(agentId: string, words: string[]): Promise<void>;
+      canvasUnheard(): Promise<Record<string, number>>;
       saveCanvas(agentId: string, board: CanvasBoard, boardText: string, applied: number): Promise<void>;
       pickFolder(): Promise<string | undefined>;
       openExternal(url: string): Promise<void>;

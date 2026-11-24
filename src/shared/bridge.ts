@@ -22,6 +22,7 @@ export const INVOKE: Record<string, [channel: string, payload: Payload]> = {
   getPullDrawings: ["canvas:pull-drawings", none],
   closeCanvasAsk: ["canvas:ask-close", (agentId, ask) => ({ agentId, ask })],
   markCanvasHeard: ["canvas:heard", (agentId, words) => ({ agentId, words })],
+  canvasUnheard: ["canvas:unheard", none],
   saveCanvas: ["canvas:save", (agentId, board, boardText, applied) => ({ agentId, board, boardText, applied })],
   pickFolder: ["folder:pick", none],
   openExternal: ["external:open", one],

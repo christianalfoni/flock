@@ -66,7 +66,8 @@ Orchestrators never get Claude's `Edit`/`Write` tools, and Codex runs them in th
 src/main/        Electron main: agents and workers (agents.ts), the MCP server (mcp.ts),
                  adapters/ (one per CLI), worktrees (git.ts), pull requests (github.ts),
                  canvas storage (canvas.ts), the role guides (guides.ts)
-src/renderer/    The window: main.tsx (left bar, views, message box, settings),
+src/renderer/    The window, in Flock's look: main.tsx (header, left bar, the agent's page,
+                 the workers panel, settings), avatar.tsx (the agents' characters),
                  canvas.tsx (TTMI's board and walkthrough), voiceGate.ts (the voice
                  only sounds after a press of yours)
 src/shared/      Types, the drawing guides, pull request canvases and status,

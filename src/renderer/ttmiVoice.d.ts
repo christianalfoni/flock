@@ -79,3 +79,4 @@ declare module "ttmi-voice" {
   export const VOICES: { id: string; name: string }[];
   export function narratorVoice(voiceName: string | undefined, onTeam?: boolean): string;
 }
+declare module "*.svg" { const url: string; export default url; }

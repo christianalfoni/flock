@@ -29,6 +29,8 @@ export type Agent = {
   name: string;
   repo: string; // the repository's folder
   cli: CliId;
+  // Its avatar's colour (renderer/avatar.tsx); one from its id when not chosen.
+  color?: string;
   voice?: string;
   sessionId?: string; // the CLI's own id, to resume it
   createdAt: number;
@@ -56,7 +58,9 @@ export type TranscriptEntry =
   | { id: string; at: number; kind: "user"; text: string; from?: string }
   | { id: string; at: number; kind: "assistant"; text: string }
   | { id: string; at: number; kind: "tool"; name: string; summary?: string; error?: boolean }
-  | { id: string; at: number; kind: "notice"; text: string; tone?: "warn" };
+  | { id: string; at: number; kind: "notice"; text: string; tone?: "warn" }
+  // A turn ended: Flock's "Done" line, with how long it took.
+  | { id: string; at: number; kind: "turn"; durationMs?: number; error?: boolean };
 
 // Where a session stands: whether it is at work, and what it does now.
 export type SessionState = {

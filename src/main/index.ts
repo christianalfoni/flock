@@ -1,11 +1,12 @@
 // Flock's main process: the window, the app's MCP server for the sessions
 // it starts, and what the window asks of it (shared/bridge.ts).
 import { app, BrowserWindow, dialog, ipcMain, net, protocol, shell } from "electron";
+import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { INVOKE } from "../shared/bridge";
 import { answerPermission, appState, createAgent, refreshClis, removeAgent, removeWorker, restartSession, saveSettings, sendMessage, startAgents, stopAll, transcriptOf } from "./agents";
-import { closeAsk, markHeard, readCanvas, readPullDrawings, saveBoard, startCanvases } from "./canvas";
+import { closeAsk, markHeard, readCanvas, readPullDrawings, saveBoard, startCanvases, unheardCounts } from "./canvas";
 import { startMcpServer } from "./mcp";
 
 let mainWindow: BrowserWindow | undefined;
@@ -65,6 +66,7 @@ const handlers: Record<string, (payload: any) => unknown> = {
   "canvas:pull-drawings": () => readPullDrawings(),
   "canvas:ask-close": (input) => closeAsk(input.agentId, input.ask),
   "canvas:heard": (input) => markHeard(input.agentId, input.words),
+  "canvas:unheard": () => unheardCounts(appState().agents.map((agent) => agent.id)),
   "canvas:save": (input) => saveBoard(input.agentId, input),
   "folder:pick": async () => {
     const picked = await dialog.showOpenDialog(mainWindow!, { title: "Pick a git repository", properties: ["openDirectory"] });
@@ -91,6 +93,9 @@ void app.whenReady().then(async () => {
   startCanvases(data, broadcast);
   await startMcpServer();
   await startAgents(data, broadcast);
+  // Flock's icon in the Dock (the app runs from its folder).
+  const icon = join(app.getAppPath(), "src/renderer/public/icon-512.png");
+  if (existsSync(icon)) app.dock?.setIcon(icon);
   await createWindow();
   app.on("activate", () => {
     if (!BrowserWindow.getAllWindows().length) void createWindow();
