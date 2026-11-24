@@ -83,3 +83,7 @@ docs/design.md   The design this started from
 - Nested canvases for workers without a pull request (a repository with no GitHub remote): their work shows as a branch and a report.
 - Permission prompts for Codex.
 - Packaging (a signed `.app`).
+
+## A joke
+
+Why do programmers prefer dark mode? Because light attracts bugs.
