@@ -6,8 +6,8 @@ import type { Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 
 const here = dirname(fileURLToPath(import.meta.url));
-// TTMI's voice, used in place from the TTMI checkout beside this one.
-const TTMI_VOICE = resolve(here, "../ttmi/apps/web/src/voice");
+// TTMI's voice, copied from TTMI's web app (voice/ttmi).
+const TTMI_VOICE = resolve(here, "voice/ttmi");
 const STUBS = resolve(here, "src/renderer/ttmiVoiceStubs.ts");
 
 // The voice's imports from its own web app go to Flock's stand-ins
@@ -37,15 +37,11 @@ export default defineConfig({
   },
   renderer: {
     plugins: [ttmiVoice(), react(), tailwindcss()],
-    // TTMI's board (linked from the TTMI checkout) uses the app's React;
+    // TTMI's board (packages/ttmi-board) uses the app's React;
     // "ttmi-voice" is TTMI's voice (voice/ttmiVoice.ts).
     resolve: { dedupe: ["react", "react-dom"], alias: { "ttmi-voice": resolve(here, "voice/ttmiVoice.ts"), "ttmi-voices": resolve(here, "voice/ttmiVoices.ts") } },
     // The voice's engine runs in a shared worker, an ES module.
     worker: { format: "es", plugins: () => [ttmiVoice()] },
     optimizeDeps: { exclude: ["phonon-webgpu"] },
-    // Under the dev server, TTMI's voice worker is fetched from the TTMI
-    // checkout, outside this folder: allowed, or it is refused (403) and the
-    // voice never starts.
-    server: { fs: { allow: [here, resolve(here, "../ttmi")] } },
   },
 });

@@ -1,0 +1,35 @@
+{
+  "key": "9fff394a6eb63857402a74e7e968a4c2eb5d7ed1815bd4c3bca5942ef08e1a28",
+  "clips": [
+    {
+      "voice": "miles",
+      "file": "miles.mp3",
+      "seconds": 3.84
+    },
+    {
+      "voice": "easton",
+      "file": "easton.mp3",
+      "seconds": 3.68
+    },
+    {
+      "voice": "zoey",
+      "file": "zoey.mp3",
+      "seconds": 3.84
+    },
+    {
+      "voice": "harper",
+      "file": "harper.mp3",
+      "seconds": 3.92
+    },
+    {
+      "voice": "maeve",
+      "file": "maeve.mp3",
+      "seconds": 3.92
+    },
+    {
+      "voice": "hugh",
+      "file": "hugh.mp3",
+      "seconds": 3.92
+    }
+  ]
+}

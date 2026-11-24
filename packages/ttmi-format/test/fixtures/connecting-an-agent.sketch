@@ -1,0 +1,72 @@
+# sketch Connecting an agent
+# The onboarding design (docs/plan-onboarding.md) without its positions: the
+# text whose group regions crossed each other, laid out fresh. The
+# dashboard's arrow back to the connect page closes a cycle, which the
+# layering sets aside (docs/format.md, Layout, step 2).
+direction: right
+agents: box "/connect page\npick your client" solid tag "Web"
+claude: box "Claude\none add, five surfaces" tint tag "Client"
+editors: box "Cursor · VS Code · goose\ninstall buttons" tint tag "Client"
+clis: box "Codex · Gemini · OpenCode\ncopy a command" tint tag "Client"
+other: box "ChatGPT · Zed · JetBrains\npaste the address" tag "Client"
+mcp: box "ttmi MCP server\n/mcp, AuthKit sign-in" solid tag "Server"
+status: box "Connected?\ndashboard banner, page status" tint tag "Web"
+plugin: box "ttmi plugin\nskill + connector" tint tag "Repo"
+listings: box "MCP registry\nAnthropic directory" tag "After launch"
+links: note tag "Verified" width 460
+  ## Install links
+
+  ```text
+  cursor://anysphere.cursor-deeplink/mcp/install
+    ?name=ttmi&config=<base64 {"url":"https://ttmi.ai/mcp"}>
+  https://vscode.dev/redirect/mcp/install
+    ?name=ttmi&config=<urlencoded {name,type:"http",url}>
+  goose://extension?type=streamable_http
+    &url=https://ttmi.ai/mcp&id=ttmi&name=ttmi
+  ```
+signal: note tag "Data model" width 420
+  ## users/{uid}.agent
+
+  ```ts
+  type Agent = { client: string; lastSeenAt: string };
+  // { client: "Claude Code", lastSeenAt: "…T09:12:00Z" }
+  ```
+
+  Stamped by the server on each MCP call. Unset: the dashboard shows a banner that leads to /connect. Set: client and time.
+layout: note tag "Repo" width 460
+  ## Plugin layout
+
+  ```text
+  .claude-plugin/marketplace.json    -> ./plugins/ttmi
+  plugins/ttmi/.claude-plugin/plugin.json
+  plugins/ttmi/.mcp.json             { type: http, url }
+  plugins/ttmi/skills/ttmi/SKILL.md  (moved from skill/)
+  ```
+
+  ```text
+  claude plugin install ttmi --marketplace christianalfoni/ttmi
+  ```
+site: group "ttmi.ai" of agents, status, mcp
+clients: group "Agent clients" of claude, editors, clis, other
+repo: group "GitHub repo" of plugin, layout
+agents -> claude "open Connectors"
+agents -> editors "one click"
+agents -> clis "copy command"
+agents -> other "copy address"
+claude -> mcp "sign in, call tools"
+editors -> mcp "sign in, call tools"
+clis -> mcp "sign in, call tools"
+other -> mcp "sign in, call tools"
+mcp -> status "stamps agent"
+status -> agents "banner leads here"
+plugin -> claude "skill + connector"
+plugin -> listings "submit"
+links -> editors
+signal -> status
+layout -> plugin
+
+step: agents claude editors clis other
+  The Agents page becomes Connect: a client picker instead of a wall of cards.
+
+step: mcp status signal
+  Every path ends at the same sign-in and the same server, which stamps the user.

@@ -5,10 +5,10 @@
 // (electron.vite.config.ts, src/renderer/ttmiVoiceStubs.ts). Flock imports
 // it as "ttmi-voice", typed by src/renderer/ttmiVoice.d.ts, so TypeScript
 // does not follow it into TTMI's web app.
-export { useNarration } from "../../ttmi/apps/web/src/voice/useNarration";
-export { stepLoads } from "../../ttmi/apps/web/src/voice/pace";
-export { pausePlayback, pausedClip, resumePlayback, stop as stopPlayback, unlockPlayback } from "../../ttmi/apps/web/src/voice/player";
-export { useVoiceStatus, voice } from "../../ttmi/apps/web/src/voice/client";
-export { DEFAULT_VOICE, narratorVoice, VOICES } from "../../ttmi/apps/web/src/voice/protocol";
-export { speakStep } from "../../ttmi/apps/web/src/voice/speak";
-export { watchStream } from "../../ttmi/apps/web/src/voice/stream";
+export { useNarration } from "./ttmi/useNarration";
+export { stepLoads } from "./ttmi/pace";
+export { pausePlayback, pausedClip, resumePlayback, stop as stopPlayback, unlockPlayback } from "./ttmi/player";
+export { useVoiceStatus, voice } from "./ttmi/client";
+export { DEFAULT_VOICE, narratorVoice, VOICES } from "./ttmi/protocol";
+export { speakStep } from "./ttmi/speak";
+export { watchStream } from "./ttmi/stream";

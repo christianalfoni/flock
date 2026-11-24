@@ -10,7 +10,7 @@ No accounts, no cloud, no config file: pick a git repository, start an agent, ta
 2. **You talk to it.** In the **Canvas** view, what you write is an *Ask* about the walkthrough step you are on. In the **Chat** view, you see the plain transcript.
 3. **It answers by drawing.** Its `draw` tool sets its canvas, which is a [TTMI](https://ttmi.ai) drawing with a narrated walkthrough. The app merges each drawing into your board and keeps where you moved things.
 4. **It starts workers.** `start_worker` creates a git worktree and branch for the task, starts a CLI session there with the worker's instructions, and hands it the task.
-5. **Workers report back.** A worker's `report` reaches its orchestrator as a `[Flock]` message. When a worker opens a pull request (with `gh`), it draws the change, and that drawing shows nested inside the pull request's box on the orchestrator's canvas. The app follows the pull request's state and CI through `gh`.
+5. **Workers report back.** A worker's `report` reaches its orchestrator as a `[Flock]` message. When a worker opens a pull request (with `gh`), it draws the change, and that drawing shows nested inside the pull request's box on the orchestrator's canvas. The app follows each pull request's state and CI through `gh` (at start, then every minute); a change is news for the orchestrator and recolours its badge on the canvas.
 6. **Removing a worker** stops its session and removes its worktree. The app refuses while the worktree has uncommitted changes or commits that exist nowhere else, unless you confirm (the branch is then kept).
 
 ## Requirements
@@ -21,7 +21,6 @@ No accounts, no cloud, no config file: pick a git repository, start an agent, ta
   - [Claude Code](https://docs.claude.com/en/docs/claude-code) (`claude`)
   - [Codex](https://github.com/openai/codex) (`codex`)
 - Optional: [`gh`](https://cli.github.com), logged in, for pull requests
-- **A TTMI checkout beside this one** (`../ttmi`). The board, the drawing format and the voice are linked from it, not copied (`package.json`, `electron.vite.config.ts`).
 
 ## Run it
 
@@ -70,8 +69,10 @@ src/main/        Electron main: agents and workers (agents.ts), the MCP server (
 src/renderer/    The window: main.tsx (left bar, views, message box, settings),
                  canvas.tsx (TTMI's board and walkthrough), voiceGate.ts (the voice
                  only sounds after a press of yours)
-src/shared/      Types, the drawing guides, pull request canvases, "new since you heard it"
-voice/           TTMI's voice, used in place from the TTMI checkout
+src/shared/      Types, the drawing guides, pull request canvases and status,
+                 "new since you heard it", TTMI's drawing guide (ttmiGuide.md)
+packages/        TTMI's board, sketch format and model (a pnpm workspace)
+voice/           TTMI's voice (voice/ttmi), and what the app takes from it
 docs/design.md   The design this started from
 ```
 

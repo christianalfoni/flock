@@ -14,9 +14,9 @@
   },
   "dependencies": {
     "@babel/parser": "8.1.2",
-    "@ttmi/board": "link:../ttmi/packages/board",
-    "@ttmi/format": "link:../ttmi/packages/format",
-    "@ttmi/model": "link:../ttmi/packages/model",
+    "@ttmi/board": "workspace:*",
+    "@ttmi/format": "workspace:*",
+    "@ttmi/model": "workspace:*",
     "lucide-react": "1.52.0",
     "phonon-webgpu": "github:blixt/phonon#36e7e5eff820733be38e9df19ccf58ae891bd45c",
     "react": "19.3.1",
@@ -37,7 +37,9 @@
     "vite": "8.3.8"
   },
   "pnpm": {
-    "onlyBuiltDependencies": ["electron"]
+    "onlyBuiltDependencies": [
+      "electron"
+    ]
   },
   "packageManager": "pnpm@12.4.1"
 }

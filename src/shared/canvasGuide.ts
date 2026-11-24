@@ -1,6 +1,5 @@
 // The guide an orchestrator or a worker draws by (part of its instructions,
-// main/guides.ts): TTMI's own guide to its diagram language (bundled from
-// the TTMI checkout beside this one), with what is about TTMI the service
+// main/guides.ts): TTMI's own guide to its diagram language (ttmiGuide.md), with what is about TTMI the service
 // (links, sharing, its tools, Ask) replaced by Flock's canvas: one per
 // orchestrator, the only way it talks to the person it works for, and a
 // drawing per pull request, which a worker draws and which shows inside

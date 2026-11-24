@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { composeCanvasGuide } from "./canvasGuide.ts";
 
-const ttmi = readFileSync(new URL("../../../ttmi/apps/server/guide/index.md", import.meta.url), "utf8");
+const ttmi = readFileSync(new URL("./ttmiGuide.md", import.meta.url), "utf8");
 const guide = composeCanvasGuide(ttmi);
 
 test("the canvas guide keeps TTMI's language, in its order", () => {

@@ -1,8 +1,8 @@
 // Each session's instructions, given through its CLI's system-prompt option:
 // what its role is and how its tools work, then how to draw
-// (shared/canvasGuide.ts, from TTMI's own guide in the TTMI checkout beside
-// this one, bundled at build time).
-import ttmiGuide from "../../../ttmi/apps/server/guide/index.md?raw";
+// (shared/canvasGuide.ts, from TTMI's own guide, shared/ttmiGuide.md,
+// bundled at build time).
+import ttmiGuide from "../shared/ttmiGuide.md?raw";
 import { composeCanvasGuide } from "../shared/canvasGuide";
 import type { Agent, Worker } from "../shared/types";
 

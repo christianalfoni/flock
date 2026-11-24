@@ -280,13 +280,20 @@ async function refreshPull(worker: Worker, url: string) {
   if (was.state !== undefined) news(worker.orchestrator, `#${pull.number} (${worker.id}) is now ${standing(pull)}.`);
 }
 
+// Every open pull request of every worker, now and then each minute. A
+// change since the last look (one made while the app was closed too) is
+// news for its orchestrator; the canvas's badges follow the same facts.
+const POLL_MS = 60_000;
 let polling: ReturnType<typeof setInterval> | undefined;
+function pollPullRequests() {
+  for (const worker of store.workers) {
+    for (const pull of worker.pullRequests) if (pull.state !== "merged" && pull.state !== "closed") void refreshPull(worker, pull.url);
+  }
+}
 function followPullRequests() {
-  polling ??= setInterval(() => {
-    for (const worker of store.workers) {
-      for (const pull of worker.pullRequests) if (pull.state !== "merged" && pull.state !== "closed") void refreshPull(worker, pull.url);
-    }
-  }, 60_000);
+  if (polling) return;
+  pollPullRequests();
+  polling = setInterval(pollPullRequests, POLL_MS);
 }
 
 // ---------------------------------------------------------------- the tools
