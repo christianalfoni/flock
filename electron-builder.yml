@@ -1,0 +1,49 @@
+# Packaging (pnpm dist, and .github/workflows/release.yml). Everything the
+# app runs is bundled into out/ by electron-vite, so no node_modules ship.
+appId: io.github.christianalfoni.flock
+productName: Flock
+copyright: Copyright © 2026 Christian Alfoni
+directories:
+  output: dist
+  buildResources: build
+files:
+  - out/**
+  - package.json
+asarUnpack:
+  - "**/*.wasm"
+artifactName: ${productName}-${version}-${os}-${arch}.${ext}
+publish:
+  provider: github
+  owner: christianalfoni
+  repo: flock
+  releaseType: prerelease
+mac:
+  category: public.app-category.developer-tools
+  target:
+    - target: dmg
+      arch: [arm64, x64]
+    - target: zip
+      arch: [arm64, x64]
+  # No Apple Developer certificate (yet): an ad-hoc signature, which Apple
+  # Silicon needs to run the app at all. Not notarized: see the README.
+  identity: "-"
+  hardenedRuntime: false
+  gatekeeperAssess: false
+dmg:
+  title: ${productName} ${version}
+linux:
+  category: Development
+  target:
+    - target: AppImage
+      arch: [x64, arm64]
+    - target: tar.gz
+      arch: [x64, arm64]
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+    - target: zip
+      arch: [x64]
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true

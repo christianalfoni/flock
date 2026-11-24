@@ -1,5 +1,7 @@
 # Flock
 
+> **Beta.** Flock is early: expect rough edges, and changes to how it stores your agents between versions. It runs coding agents on your machine with the permissions you give them in Settings; keep an eye on what they do. Issues and feedback are welcome.
+
 A desktop app where you talk to coding agents through a canvas. Each agent answers by drawing: a few boxes and a walkthrough you play, with its voice, step by step. It runs on the coding CLIs already installed on your machine (Claude Code, Codex). An agent's workers are git worktrees, each with its own CLI session.
 
 No accounts, no cloud, no config file: pick a git repository, start an agent, talk.
@@ -13,16 +15,36 @@ No accounts, no cloud, no config file: pick a git repository, start an agent, ta
 5. **Workers report back.** A worker's `report` reaches its orchestrator as a `[Flock]` message. When a worker opens a pull request (with `gh`), it draws the change, and that drawing shows nested inside the pull request's box on the orchestrator's canvas. The app follows each pull request's state and CI through `gh` (at start, then every minute); a change is news for the orchestrator and recolours its badge on the canvas.
 6. **Removing a worker** stops its session and removes its worktree. The app refuses while the worktree has uncommitted changes or commits that exist nowhere else, unless you confirm (the branch is then kept).
 
+## Download
+
+Get the latest build from [Releases](https://github.com/christianalfoni/flock/releases):
+
+| | File |
+|---|---|
+| macOS, Apple Silicon | `Flock-<version>-mac-arm64.dmg` |
+| macOS, Intel | `Flock-<version>-mac-x64.dmg` |
+| Linux | `Flock-<version>-linux-x86_64.AppImage` (or `arm64`), or the `.tar.gz` |
+| Windows (experimental) | `Flock-<version>-win-x64.exe` |
+
+The builds are not signed with a developer certificate yet, so your system asks before opening them the first time:
+
+- **macOS:** open the `.dmg` and drag Flock to Applications. On first launch macOS says it cannot check the app: open **System Settings → Privacy & Security** and choose **Open Anyway** (or run `xattr -dr com.apple.quarantine /Applications/Flock.app` once).
+- **Linux:** `chmod +x Flock-*.AppImage`, then run it.
+- **Windows:** SmartScreen warns about an unknown publisher: **More info → Run anyway**. Windows is built but untested; driving the CLIs there may not work yet.
+
+There are no automatic updates yet: download a newer build to update.
+
 ## Requirements
 
-- macOS (the CLIs' login shell `PATH` is read at start; other platforms are untested)
-- Node 22 and pnpm
+- macOS or Linux (Windows experimental)
 - At least one coding CLI, installed and logged in:
   - [Claude Code](https://docs.claude.com/en/docs/claude-code) (`claude`)
   - [Codex](https://github.com/openai/codex) (`codex`)
 - Optional: [`gh`](https://cli.github.com), logged in, for pull requests
 
-## Run it
+## Run it from source
+
+Needs Node 22 and pnpm.
 
 ```sh
 pnpm install
@@ -66,6 +88,14 @@ Settings → *What agents may do without asking*, set separately for orchestrato
 | **Everything** | `--dangerously-skip-permissions` | `--dangerously-bypass-approvals-and-sandbox` |
 
 Orchestrators never get Claude's `Edit`/`Write` tools, and Codex runs them in the `read-only` sandbox.
+
+## Releasing
+
+1. Set the version in `package.json` (a beta is `0.1.0-beta.N`) and commit.
+2. Tag it and push the tag: `git tag v0.1.0-beta.N && git push origin v0.1.0-beta.N`.
+3. [The Release workflow](.github/workflows/release.yml) checks types and tests, builds macOS (arm64, x64), Linux (x64, arm64) and Windows (x64), and publishes them to a GitHub pre-release of that tag.
+
+`pnpm dist:mac` (or `dist:linux`, `dist:win`) packages locally into `dist/`. Running the workflow by hand builds all three and keeps them as the run's artifacts, without publishing.
 
 ## Layout
 

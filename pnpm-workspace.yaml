@@ -1,2 +1,8 @@
 packages:
   - "packages/*"
+
+# Dependencies whose install scripts may run: Electron (its binary) and
+# electron-winstaller (the Windows installer, for electron-builder).
+allowBuilds:
+  electron: true
+  electron-winstaller: true
