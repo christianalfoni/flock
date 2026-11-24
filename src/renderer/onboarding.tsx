@@ -9,15 +9,23 @@ import type { AppState, Settings } from "../shared/types";
 import { AGENT_COLORS, AgentAvatar } from "./avatar";
 import { grantVoice, guardVoice, revokeVoice } from "./voiceGate";
 
-type Heard = "untried" | "playing" | "asking" | "yes" | "no";
-
 const TEST_LINE = (name: string) => `Hi, I'm ${name}. This is how your agents will walk you through their canvases, one step at a time.`;
 
-// Installs the voice, plays a line in it, and asks whether you heard it.
-// onHeard: you said yes (or there is no voice here, and you went on).
+// A voice's name and accent, from TTMI's list ("Miles (US)").
+function voiceParts(name: string) {
+  const match = /^(.*?)\s*\((\w+)\)$/.exec(name);
+  const accent = match?.[2] === "UK" ? "British" : match?.[2] === "US" ? "American" : match?.[2] ?? "";
+  return { name: match?.[1] ?? name, accent };
+}
+
+// The voices as cards: choosing one is hearing it. The engine (installed on
+// this machine) comes first when it is not ready. onHeard (the first run):
+// after a voice has spoken, asks whether you heard it.
 export function VoiceCheck({ voiceId, onVoice, onHeard }: { voiceId: string; onVoice(id: string): void; onHeard?(heard: boolean): void }) {
   const status = useVoiceStatus(true, voiceId);
-  const [heard, setHeard] = useState<Heard>("untried");
+  const [speaking, setSpeaking] = useState<string>();
+  const [spoke, setSpoke] = useState<string>();
+  const [answer, setAnswer] = useState<"yes" | "no">();
   const [error, setError] = useState<string>();
   const stop = useRef<() => void>(undefined);
   useEffect(() => {
@@ -28,94 +36,98 @@ export function VoiceCheck({ voiceId, onVoice, onHeard }: { voiceId: string; onV
   useEffect(() => {
     if (status.state === "installed") voice().load();
   }, [status.state]);
-  const name = VOICES.find((item) => item.id === voiceId)?.name.replace(/\s*\(.*\)$/, "") ?? "your agent";
+  const ready = status.state === "ready";
 
   // A press: the voice may sound now (voiceGate.ts), and the line is made
-  // and played. Its end asks whether you heard it.
-  const play = () => {
+  // in that voice and played.
+  const hear = (id: string) => {
+    onVoice(id);
     stop.current?.();
+    if (speaking === id) {
+      setSpeaking(undefined);
+      return;
+    }
+    if (!ready) return;
     grantVoice();
     setError(undefined);
-    setHeard("playing");
-    const text = TEST_LINE(name);
-    stop.current = speakStep(voice().clip({ segments: [{ text }] }, voiceId, true, "onboarding"), text, {
+    setAnswer(undefined);
+    setSpeaking(id);
+    const text = TEST_LINE(voiceParts(VOICES.find((item) => item.id === id)?.name ?? "").name);
+    const done = (ok: boolean) => () => { setSpeaking((was) => (was === id ? undefined : was)); if (ok) setSpoke(id); };
+    stop.current = speakStep(voice().clip({ segments: [{ text }] }, id, true, "voice-check"), text, {
       speaking() {}, pointing() {}, heard() {},
-      needsGesture() { setError("Press Play again: the voice needs a press to start."); setHeard("untried"); },
-      ended() { setHeard("asking"); },
-      failed() { setError("The voice could not make that line."); setHeard("untried"); },
+      needsGesture() { setError("Press the voice again: it needs a press to start."); setSpeaking(undefined); },
+      ended: done(true),
+      failed() { setError("The voice could not make that line."); setSpeaking(undefined); },
     });
-  };
-  const answer = (yes: boolean) => {
-    setHeard(yes ? "yes" : "no");
-    onHeard?.(yes);
   };
 
   const state = status.state;
   const progress = Math.round((status.progress ?? 0) * 100);
+  const chosen = voiceParts(VOICES.find((item) => item.id === voiceId)?.name ?? "").name;
   return (
-    <div className="voice-check">
-      <div className="voice-check-row">
-        <label className="voice-check-pick">
-          <span>Voice</span>
-          <select value={voiceId} onChange={(event) => { onVoice(event.target.value); setHeard("untried"); }}>
-            {VOICES.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
-          </select>
-        </label>
-        <span className={`voice-check-state voice-check-${state}`}>
-          {state === "checking" ? "Checking this machine…"
-            : state === "absent" ? "Not installed"
-              : state === "installing" ? `Downloading · ${progress}%`
-                : state === "installed" || state === "loading" ? "Getting ready…"
-                  : state === "ready" ? <><Check size={13} /> Installed</>
-                    : "Not available here"}
-        </span>
+    <div className="voices">
+      {state === "absent" ? (
+        <div className="voice-engine">
+          <div>
+            <strong>Install the voice</strong>
+            <span>It runs on this machine: one download of about 44 MB, kept for next time.</span>
+          </div>
+          <button type="button" className="primary" onClick={() => voice().install()}><Download size={15} /> Install</button>
+        </div>
+      ) : state === "installing" || state === "loading" || state === "installed" || state === "checking" ? (
+        <div className="voice-engine">
+          <div>
+            <strong>{state === "installing" ? `Downloading the voice · ${progress}%` : "Getting the voice ready…"}</strong>
+            <span className="voice-engine-bar"><span style={{ width: `${state === "installing" ? progress : 100}%` }} className={state !== "installing" ? "voice-engine-bar-busy" : ""} /></span>
+          </div>
+        </div>
+      ) : state === "unsupported" ? (
+        <div className="voice-engine voice-engine-off">
+          <div>
+            <strong>No voice here</strong>
+            <span>{status.reason ?? "The voice could not start on this machine."} Walkthroughs still play, with captions.</span>
+          </div>
+          <button type="button" className="ghost" onClick={() => voice().retry()}><RotateCcw size={14} /> Try again</button>
+          {onHeard && <button type="button" className="ghost" onClick={() => onHeard(false)}>Go on without</button>}
+        </div>
+      ) : (
+        <p className="voice-ready"><Check size={14} /> Installed on this machine. Choose a voice to hear it.</p>
+      )}
+
+      <div className="voice-grid" role="radiogroup" aria-label="Voice">
+        {VOICES.map((item) => {
+          const parts = voiceParts(item.name);
+          const on = item.id === voiceId;
+          const talking = speaking === item.id;
+          return (
+            <button key={item.id} type="button" role="radio" aria-checked={on} className={`voice-card ${on ? "voice-card-on" : ""} ${talking ? "voice-card-talking" : ""}`} onClick={() => hear(item.id)} title={ready ? (talking ? "Stop" : `Hear ${parts.name}`) : `Choose ${parts.name}`}>
+              <span className="voice-card-play" aria-hidden>
+                {talking ? <span className="voice-bars"><span /><span /><span /><span /></span> : <Play size={14} />}
+              </span>
+              <span className="voice-card-name">{parts.name}</span>
+              <span className="voice-card-accent">{parts.accent}</span>
+              {on && <Check size={14} className="voice-card-check" />}
+            </button>
+          );
+        })}
       </div>
 
-      {(state === "installing" || state === "loading" || state === "installed") && (
-        <div className="voice-check-bar"><span style={{ width: `${state === "installing" ? progress : 100}%` }} className={state !== "installing" ? "voice-check-bar-busy" : ""} /></div>
-      )}
-
-      {state === "absent" && (
-        <div className="voice-check-actions">
-          <p className="voice-check-note">The voice runs on this machine. It is one download of about 44 MB, kept for next time.</p>
-          <button type="button" className="primary" onClick={() => voice().install()}><Download size={15} /> Install the voice</button>
-        </div>
-      )}
-
-      {state === "unsupported" && (
-        <div className="voice-check-actions">
-          <p className="voice-check-note">{status.reason ?? "The voice could not start here."} Walkthroughs still play, with captions.</p>
-          <button type="button" className="ghost" onClick={() => voice().retry()}><RotateCcw size={14} /> Try again</button>
-          {onHeard && <button type="button" className="ghost" onClick={() => answer(false)}>Go on without a voice</button>}
-        </div>
-      )}
-
-      {state === "ready" && (
-        <div className="voice-check-actions">
-          {heard === "asking" ? (
-            <>
-              <p className="voice-check-question">Did you hear {name}?</p>
-              <button type="button" className="ghost" onClick={() => setHeard("no")}><VolumeX size={14} /> No sound</button>
-              <button type="button" className="primary" onClick={() => answer(true)}><Volume2 size={15} /> Yes, I heard it</button>
-            </>
-          ) : heard === "yes" ? (
-            <>
-              <p className="voice-check-question voice-check-good"><Check size={15} /> The voice works.</p>
-              <button type="button" className="ghost" onClick={play}><Play size={14} /> Play again</button>
-            </>
-          ) : heard === "no" ? (
-            <>
-              <p className="voice-check-note">Check that your Mac's sound is on and its output is the speaker or headphones you use, then play it again. If it stays silent, walkthroughs still play, with captions.</p>
-              <button type="button" className="ghost" onClick={play}><Play size={14} /> Play again</button>
-              {onHeard && <button type="button" className="ghost" onClick={() => answer(false)}>Go on without a voice</button>}
-            </>
-          ) : (
-            <>
-              <p className="voice-check-note">{heard === "playing" ? `${name} is speaking…` : "Turn your sound on, and play a line in this voice."}</p>
-              <button type="button" className="primary" disabled={heard === "playing"} onClick={play}><Play size={15} /> {heard === "playing" ? "Playing…" : "Play a test"}</button>
-            </>
-          )}
-        </div>
+      {onHeard && spoke && !speaking && (
+        answer === "no" ? (
+          <div className="voice-question">
+            <span>Check that your Mac's sound is on, and its output is the speaker or headphones you use, then press the voice again.</span>
+            <button type="button" className="ghost" onClick={() => onHeard(false)}>Go on without</button>
+          </div>
+        ) : answer === "yes" ? (
+          <p className="voice-ready voice-heard"><Volume2 size={14} /> {chosen} it is.</p>
+        ) : (
+          <div className="voice-question">
+            <strong>Did you hear {voiceParts(VOICES.find((item) => item.id === spoke)?.name ?? "").name}?</strong>
+            <button type="button" className="ghost" onClick={() => setAnswer("no")}><VolumeX size={14} /> No sound</button>
+            <button type="button" className="primary" onClick={() => { setAnswer("yes"); onHeard(true); }}><Volume2 size={14} /> Yes</button>
+          </div>
+        )
       )}
       {error && <p className="agent-error">{error}</p>}
     </div>

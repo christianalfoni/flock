@@ -607,10 +607,15 @@ function Conversation({ id, agent, worker, state, view, onView, onBack, panel }:
 
 // ---------------------------------------------------------------- settings
 
+const ROLES: { id: "orchestrator" | "worker"; label: string; detail: string }[] = [
+  { id: "orchestrator", label: "Orchestrators", detail: "plan only" },
+  { id: "worker", label: "Workers", detail: "build in worktrees" },
+];
+
 const MODES: { id: PermissionMode; label: string; detail: string }[] = [
-  { id: "ask", label: "Ask me", detail: "Edits are fine. Commands and the web ask you first." },
-  { id: "edits", label: "Edits only", detail: "Edits are fine. Anything else is refused." },
-  { id: "all", label: "Everything", detail: "No questions asked. Fast, and fully trusting." },
+  { id: "ask", label: "Ask me", detail: "File edits go ahead. Shell commands and the web wait for your Allow." },
+  { id: "edits", label: "Edits only", detail: "File edits go ahead. Anything else is refused, without asking." },
+  { id: "all", label: "Everything", detail: "Nothing is asked. Fast, and fully trusting." },
 ];
 
 type SettingsTab = "clis" | "voice" | "permissions";
@@ -700,12 +705,28 @@ function SettingsModal({ state, onClose }: { state: AppState; onClose(): void })
 
           {tab === "voice" && <VoiceCheck voiceId={settings.voice ?? DEFAULT_VOICE} onVoice={(id) => update({ ...settings, voice: id })} />}
 
-          {tab === "permissions" && (["orchestrator", "worker"] as const).map((role) => (
-            <div key={role}>
-              <h3>{role === "orchestrator" ? "Orchestrators" : "Workers"}<span className="muted"> · {role === "orchestrator" ? "they plan, and never edit files" : "each in its own worktree"}</span></h3>
-              <Choice value={settings.permissions[role]} options={MODES} onChange={(mode) => update({ ...settings, permissions: { ...settings.permissions, [role]: mode } })} />
+          {tab === "permissions" && (
+            // The modes as rows, each said once; the two roles as columns.
+            <div className="perm-table" role="table">
+              <div className="perm-head" role="row">
+                <span role="columnheader" />
+                {ROLES.map((role) => <span key={role.id} role="columnheader"><strong>{role.label}</strong><small>{role.detail}</small></span>)}
+              </div>
+              {MODES.map((mode) => (
+                <div key={mode.id} className="perm-row" role="row">
+                  <span className="perm-mode" role="rowheader"><strong>{mode.label}</strong><small>{mode.detail}</small></span>
+                  {ROLES.map((role) => {
+                    const on = settings.permissions[role.id] === mode.id;
+                    return (
+                      <button key={role.id} type="button" role="radio" aria-checked={on} aria-label={`${role.label}: ${mode.label}`} className={`perm-cell ${on ? "perm-cell-on" : ""}`} onClick={() => update({ ...settings, permissions: { ...settings.permissions, [role.id]: mode.id } })}>
+                        <span className="perm-radio" />
+                      </button>
+                    );
+                  })}
+                </div>
+              ))}
             </div>
-          ))}
+          )}
           {tab === "permissions" && <p className="settings-footnote">Codex cannot ask from its headless mode: with Ask me it runs as Edits only. Everything is Claude Code's bypassPermissions, and Codex without its sandbox.</p>}
         </section>
       </div>

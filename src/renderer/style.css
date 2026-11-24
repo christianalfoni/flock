@@ -717,3 +717,64 @@ body { overflow: hidden; color: var(--fg); }
 .settings-body .choice { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .settings-footnote { margin: 1.2rem 0 0; color: var(--fg-3); font-size: 0.78rem; line-height: 1.5; }
 .settings-body > div + div > h3 { margin-top: 1.6rem; }
+
+/* --- Settings, given room --- */
+.settings-body { padding: 1.6rem 2rem 2rem; }
+.settings-lead { margin: 0.5rem 0 1.6rem; max-width: 34rem; }
+.settings-body h3 { margin: 1.8rem 0 0.75rem; }
+.settings-tab:not(.settings-tab-on):hover { background: var(--surface-3); }
+
+/* Permissions: the modes as rows, the roles as columns. */
+.perm-table { display: flex; flex-direction: column; border: 1px solid var(--border); border-radius: 0.9rem; overflow: hidden; }
+.perm-head, .perm-row { display: grid; grid-template-columns: minmax(0, 1fr) 130px 130px; align-items: center; }
+.perm-head { border-bottom: 1px solid var(--border); background: var(--surface-2); padding: 0.75rem 0; }
+.perm-head > span { display: flex; flex-direction: column; align-items: center; gap: 0.1rem; text-align: center; }
+.perm-head strong { font-size: 0.85rem; }
+.perm-head small, .perm-mode small { color: var(--fg-3); font-size: 0.76rem; line-height: 1.45; }
+.perm-row + .perm-row { border-top: 1px solid var(--border); }
+.perm-mode { display: flex; flex-direction: column; gap: 0.25rem; padding: 1rem 1.1rem; }
+.perm-mode strong { font-size: 0.95rem; }
+.perm-cell { display: grid; height: 100%; place-items: center; border: 0; background: transparent; }
+.perm-cell:hover .perm-radio { border-color: var(--fg-3); }
+.perm-radio { width: 20px; height: 20px; border: 2px solid var(--border-strong); border-radius: 999px; transition: border-color 120ms, background 120ms; }
+.perm-cell-on .perm-radio, .perm-cell-on:hover .perm-radio { border-color: var(--primary); background: radial-gradient(circle, var(--primary) 0 5px, transparent 5.5px); }
+.settings-footnote { margin-top: 1rem; max-width: 36rem; }
+
+/* The voices as cards (onboarding.tsx, VoiceCheck): choosing one is hearing it. */
+.voices { display: flex; flex-direction: column; gap: 1rem; }
+.voice-ready { display: flex; align-items: center; gap: 0.4rem; margin: 0; color: var(--fg-3); font-size: 0.85rem; }
+.voice-ready svg { color: #3ee08f; }
+.voice-heard { color: var(--fg-1); }
+.voice-heard svg { color: var(--primary); }
+.voice-engine { display: flex; align-items: center; gap: 1rem; border: 1px solid var(--border); border-radius: 0.9rem; background: var(--surface-2); padding: 1rem 1.1rem; }
+.voice-engine > div { display: flex; min-width: 0; flex: 1; flex-direction: column; gap: 0.35rem; }
+.voice-engine strong { font-size: 0.95rem; }
+.voice-engine span { color: var(--fg-2); font-size: 0.84rem; line-height: 1.5; }
+.voice-engine button { display: inline-flex; flex: none; align-items: center; gap: 0.4rem; }
+.voice-engine-off strong { color: color-mix(in srgb, #ff8fa3 70%, var(--fg)); }
+.voice-engine-bar { display: block; height: 6px; overflow: hidden; border-radius: 999px; background: var(--surface-3); }
+.voice-engine-bar > span { display: block; height: 100%; border-radius: 999px; background: var(--primary); transition: width 200ms; }
+.voice-engine-bar-busy { animation: ci-pulse 1.4s ease-in-out infinite; }
+.voice-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.65rem; }
+.voice-card { position: relative; display: grid; grid-template-columns: auto 1fr; grid-template-rows: auto auto; align-items: center; column-gap: 0.8rem; border: 1px solid var(--border); border-radius: 0.9rem; background: var(--surface); padding: 0.85rem 0.9rem; text-align: left; transition: border-color 120ms, background-color 120ms, transform 120ms; }
+.voice-card:hover { border-color: var(--border-strong); transform: translateY(-1px); }
+.voice-card-on, .voice-card-on:hover { border-color: var(--primary); background: color-mix(in srgb, var(--primary) 9%, var(--surface)); }
+.voice-card-play { display: grid; grid-row: span 2; width: 38px; height: 38px; place-items: center; border-radius: 999px; background: var(--surface-3); color: var(--fg-1); transition: background 120ms; }
+.voice-card:hover .voice-card-play { background: var(--border-strong); }
+.voice-card-on .voice-card-play, .voice-card-on:hover .voice-card-play { background: var(--primary); color: var(--primary-fg); }
+.voice-card-play svg { margin-left: 2px; }
+.voice-card-name { color: var(--fg); font-family: var(--font-display); font-size: 1rem; font-weight: 750; }
+.voice-card-accent { color: var(--fg-3); font-size: 0.8rem; }
+.voice-card-check { position: absolute; top: 0.65rem; right: 0.7rem; color: var(--primary); }
+/* A voice speaking: its play button turns into a small equaliser. */
+.voice-bars { display: flex; height: 14px; align-items: flex-end; gap: 2px; }
+.voice-bars span { width: 3px; border-radius: 2px; background: currentColor; animation: voice-bar 0.9s ease-in-out infinite; }
+.voice-bars span:nth-child(2) { animation-delay: -0.3s; }
+.voice-bars span:nth-child(3) { animation-delay: -0.6s; }
+.voice-bars span:nth-child(4) { animation-delay: -0.15s; }
+@keyframes voice-bar { 0%, 100% { height: 4px; } 50% { height: 14px; } }
+@media (prefers-reduced-motion: reduce) { .voice-bars span { animation: none; height: 9px; } }
+.voice-question { display: flex; flex-wrap: wrap; align-items: center; gap: 0.6rem; border-radius: 0.9rem; background: var(--surface-2); padding: 0.8rem 0.9rem; }
+.voice-question > strong, .voice-question > span { margin-right: auto; font-size: 0.9rem; }
+.voice-question > span { flex: 1; min-width: 14rem; color: var(--fg-2); line-height: 1.5; }
+.voice-question button { display: inline-flex; align-items: center; gap: 0.35rem; }
