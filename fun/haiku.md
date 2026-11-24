@@ -11,3 +11,7 @@ no feather collides.
 Scouts return with seeds:
 small commits fall into place,
 the flock flies on home.
+
+Its last branch merged in,
+the worker folds its wings, leaves —
+the worktree swept clean.
