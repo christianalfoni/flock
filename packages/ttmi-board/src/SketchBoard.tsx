@@ -214,7 +214,7 @@ const TOOLS: { id: Tool; key: string; label: string; icon: typeof Square }[] = [
   { id: "arrow", key: "a", label: "Arrow", icon: MoveUpRight },
 ];
 
-export function SketchBoard({ initial, initialSteps = [], initialGroups = [], initialTerms = [], title, importing, readOnly = false, onSave, onApi, onImported, onSelection, onOpenLink, onHost, onBack, portals, onPlaying, onStepPress, onPlayback, onReplay, caption, preparing, standby, waiting, stepFill, pointing, holding, quiet = false, onQuiet, voiced = false, topLeft, topRight, stepEnd, speedControl, playbackRate = 1, onAsk, ask }: {
+export function SketchBoard({ initial, initialSteps = [], initialGroups = [], initialTerms = [], title, importing, readOnly = false, onSave, onApi, onImported, onSelection, onOpenLink, onHost, onBack, portals, onPlaying, onStepPress, onPlayback, onReplay, caption, preparing, standby, waiting, stepFill, pointing, holding, quiet = false, onQuiet, voiced = false, topLeft, topRight, stepEnd, speedControl, playbackRate = 1, onAsk, ask, panelHeader, startLabel }: {
   initial: Shape[];
   // The walkthrough the sketch text gave, if any.
   initialSteps?: SketchStep[];
@@ -329,6 +329,11 @@ export function SketchBoard({ initial, initialSteps = [], initialGroups = [], in
     // board keeps the panel, its place and its keys.
     view?: ReactNode;
   };
+  // A line the host puts at the top of the walkthrough's panel, ready or
+  // playing (Flock: who is at work, what is new).
+  panelHeader?: ReactNode;
+  // What the ready panel's Play says (Flock: "Play what's new").
+  startLabel?: string;
 }) {
   const rootRef = useRef<HTMLDivElement>(null);
   const topLeftRef = useRef<HTMLDivElement>(null);
@@ -3393,6 +3398,7 @@ export function SketchBoard({ initial, initialSteps = [], initialGroups = [], in
         // start (docs/board.md, Walkthrough).
         <div className={`sketch-chrome sketch-steps sketch-steps-ready ${preparing ? "sketch-steps-waiting" : ""}`.trim()}>
           {preparing && <span className="sketch-wave" aria-hidden />}
+          {panelHeader}
           <div className="sketch-caption sketch-caption-ready">
             {/* As wide as the close button, so the start sits in the middle. */}
             <span className="sketch-ready-balance" aria-hidden />
@@ -3402,7 +3408,7 @@ export function SketchBoard({ initial, initialSteps = [], initialGroups = [], in
                 {/* What the walkthrough is about before Play: the why. */}
                 {readyText.teaser && <p className="sketch-ready-teaser">“{readyText.teaser}”</p>}
                 <div className="sketch-ready-play">
-                  <button className="sketch-start" title="Start the walkthrough (Space)" onClick={start}><Play size={14} />Play<kbd>Space</kbd></button>
+                  <button className="sketch-start" title="Start the walkthrough (Space)" onClick={start}><Play size={14} />{startLabel ?? "Play"}<kbd>Space</kbd></button>
                   {speedControl}
                   <span className="sketch-ready-meta">{readyText.meta}</span>
                 </div>
@@ -3423,6 +3429,7 @@ export function SketchBoard({ initial, initialSteps = [], initialGroups = [], in
         <div className={`sketch-chrome sketch-steps ${stepWaiting ? "sketch-steps-waiting" : ""}`.trim()} data-quiet={quiet ? "true" : "false"} data-playback={beat}>
           {/* Waiting for the step's voice looks as the wait before the first. */}
           {stepWaiting && <span className="sketch-wave" aria-hidden />}
+          {panelHeader}
           <div className="sketch-caption">
             <div className="sketch-step-top">
               <div className="sketch-step-tools">

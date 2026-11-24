@@ -13,7 +13,7 @@
 // own facts, so it is current without a redraw.
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { ArrowLeft, Play, Sparkles, Square, Volume2, VolumeX } from "lucide-react";
+import { ArrowLeft, Sparkles, Square, Volume2, VolumeX } from "lucide-react";
 import { COLORS, firstStep, ON_COLORS, SketchBoard, stepTitle, type SketchApi } from "@ttmi/board";
 import { parseSketch, sketchTitle, stepParts, textMeasure, type Shape, type SketchGroup, type SketchStep } from "@ttmi/format";
 import { DEFAULT_VOICE, pausedClip, pausePlayback, resumePlayback, speakStep, stepLoads, stopPlayback, useNarration, useVoiceStatus, voice, type Preparation } from "ttmi-voice";
@@ -695,6 +695,10 @@ export function AgentCanvas({ agentId, name, voice: agentVoice, pullRequests: fo
   useEffect(() => {
     if (isPlaying && changed.length) setChanged([]);
   }, [isPlaying]);
+  // The dock's first line: who is at work and on what, else what is new for
+  // you, else whose canvas this is (DockHeader).
+  const news = !hosted && freshShown.length > 0 ? { steps: freshShown.length, updated: Boolean(updatedAt) } : undefined;
+  const dockHeader = <DockHeader name={name} avatar={avatar} live={live} news={news} hosted={hostedWorker} />;
   const playNew = () => {
     const start = freshRef.current[0];
     if (start === undefined) return;
@@ -842,7 +846,6 @@ export function AgentCanvas({ agentId, name, voice: agentVoice, pullRequests: fo
       ref={host}
       className={`agent-canvas ${dark ? "dark" : ""}`}
       style={{
-        "--agent-canvas-fresh": JSON.stringify(freshShown.length ? ` · ${freshShown.length} new` : ""),
       } as React.CSSProperties}
       // Enter does what Space does on an answer.
       onKeyDown={(event) => {
@@ -854,12 +857,6 @@ export function AgentCanvas({ agentId, name, voice: agentVoice, pullRequests: fo
       {tones && <style>{tones}</style>}
       {canvasNamed.current.size > 0 && <style>{`${[...canvasNamed.current.keys()].map((name) => `.agent-canvas .sketch-ref[data-ref="${name}"]`).join(", ")} { cursor: pointer; }`}</style>}
       {!hosted && changed.length > 0 && <ChangeBadges host={host} changed={changed} />}
-      <NowIsland
-        host={host}
-        live={live}
-        update={!hosted && !open && !isPlaying && freshShown.length > 0 ? { who: name, steps: freshShown.length, at: updatedAt } : undefined}
-        onPlayNew={playNew}
-      />
       {freshMarks && <style>{`${freshMarks} { box-shadow: inset 0 0 0 1.5px var(--board-accent); background-color: color-mix(in srgb, var(--board-accent) 30%, transparent); }`}</style>}
       <SketchBoard
         key={agentId}
@@ -890,6 +887,8 @@ export function AgentCanvas({ agentId, name, voice: agentVoice, pullRequests: fo
         }}
         onSave={(shapes, steps, groups, terms) => save({ shapes, steps, groups, terms })}
         portals={portals}
+        panelHeader={dockHeader}
+        {...(news && !isPlaying ? { startLabel: "Play what's new" } : {})}
         {...(askPanel ? { ask: askPanel } : {})}
         onOpenLink={openPull}
         onHost={(id) => {
@@ -968,6 +967,7 @@ export function AgentCanvas({ agentId, name, voice: agentVoice, pullRequests: fo
       <CanvasSkeleton leaving={drawnIn} />
       {!hasPanel && (
         <div className="agent-canvas-dock-placeholder" aria-hidden={!empty}>
+          {dockHeader}
           {empty && !hosted ? <p>{name} has not drawn anything yet. What it wants you to see shows here.</p> : (
             <>
               <span className="agent-canvas-skeleton-text" />
@@ -1049,35 +1049,6 @@ function changedShapes(before: Shape[], after: Shape[]): ChangedShape[] {
   });
 }
 
-// How far from the canvas's bottom the top of the dock is (the walkthrough's
-// panel, or its placeholder): what sits on the dock goes there, and follows
-// it as it grows and shrinks.
-function useAboveDock(host: React.RefObject<HTMLDivElement | null>, on: boolean) {
-  const [bottom, setBottom] = useState(140);
-  useLayoutEffect(() => {
-    const node = host.current;
-    if (!node || !on) return;
-    let panel: Element | null = null;
-    const sizes = new ResizeObserver(() => measure());
-    const measure = () => {
-      const next = node.querySelector(".sketch-steps, .agent-canvas-dock-placeholder");
-      if (next !== panel) {
-        if (panel) sizes.unobserve(panel);
-        panel = next;
-        if (panel) sizes.observe(panel);
-      }
-      if (!panel) return;
-      setBottom(Math.round(node.getBoundingClientRect().bottom - panel.getBoundingClientRect().top + 10));
-    };
-    const watcher = new MutationObserver(measure);
-    watcher.observe(node, { childList: true, subtree: true });
-    sizes.observe(node);
-    measure();
-    return () => { watcher.disconnect(); sizes.disconnect(); };
-  }, [host, on]);
-  return bottom;
-}
-
 // A badge on each shape a drawing added or changed (New, Updated), at its
 // top right corner, following it as the board pans and zooms. They go when
 // the walkthrough plays.
@@ -1119,31 +1090,30 @@ function ChangeBadges({ host, changed }: { host: React.RefObject<HTMLDivElement 
   );
 }
 
-// The canvas's "now": who is at work (a row each: avatar, name, latest
-// line), and, when a drawing brought steps you have not heard, the update
-// with a way to play just what is new. At the top of the canvas, under the
-// views' switch; the dock at the bottom stays yours.
-function NowIsland({ host, live, update, onPlayNew }: { host: React.RefObject<HTMLDivElement | null>; live: LiveRow[]; update?: { who: string; steps: number; at?: number }; onPlayNew(): void }) {
-  const bottom = useAboveDock(host, Boolean(live.length || update));
-  if (!live.length && !update) return null;
+// The dock's first line, the same in every state of the walkthrough: the
+// agent (or the worker at work), and what is going on. At work: what it
+// does now, its avatar bobbing (and how many others work too). Else, when a
+// drawing brought steps you have not heard: that it updated the canvas, and
+// how many are new (the dock's Play then plays those). Else, quietly, whose
+// canvas this is.
+function DockHeader({ name, avatar, live, news, hosted }: { name: string; avatar(working: boolean): React.ReactNode; live: LiveRow[]; news?: { steps: number; updated: boolean }; hosted?: string }) {
+  const row = live[0];
   return (
-    <div className="now-island" aria-live="polite" style={{ bottom }}>
-      {update && (
-        <div className="now-row now-update">
-          <Sparkles size={15} className="now-update-mark" />
-          <span className="now-update-text"><strong>{update.who}</strong> {update.at ? "updated the canvas" : "has news for you"} · {update.steps} new {update.steps === 1 ? "step" : "steps"}</span>
-          <button type="button" className="now-update-play" onClick={onPlayNew}><Play size={12} />Play what's new<kbd>Space</kbd></button>
-        </div>
+    <div className={`dock-header ${row ? "dock-header-working" : news ? "dock-header-news" : ""}`} aria-live="polite">
+      <span className="dock-header-avatar">{row ? row.avatar : avatar(false)}</span>
+      <span className="dock-header-name">{row ? row.name : hosted ?? name}</span>
+      {row ? (
+        <>
+          <span className="dock-header-line">{row.line}</span>
+          {row.detail && <span className="dock-header-detail">{row.detail}</span>}
+          {row.more ? <span className="dock-header-more" title={`${row.more} more at work`}>+{row.more}</span> : null}
+        </>
+      ) : news ? (
+        <span className="dock-header-line">{news.updated ? "updated the canvas" : "has news for you"}</span>
+      ) : (
+        <span className="dock-header-line dock-header-quiet">{hosted ? "drew this pull request" : "is waiting for you"}</span>
       )}
-      {live.map((row) => (
-        <div key={row.id} className="now-row now-work">
-          <span className="now-avatar">{row.avatar}</span>
-          <span className="now-name">{row.name}</span>
-          <span className="now-line">{row.line}</span>
-          {row.detail && <span className="now-detail">{row.detail}</span>}
-          {row.more ? <span className="now-more" title={`${row.more} more at work`}>+{row.more}</span> : null}
-        </div>
-      ))}
+      {news && <span className="dock-header-new"><Sparkles size={12} />{news.steps} new</span>}
     </div>
   );
 }

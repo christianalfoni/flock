@@ -621,53 +621,6 @@ body { overflow: hidden; color: var(--fg); }
 .agent-canvas-dock-placeholder p { margin: 0; color: var(--fg-3); font-size: 15px; line-height: 1.5; }
 .convo-canvas-mode.convo-busy .agent-canvas-dock-placeholder { border-color: var(--working); }
 
-/* --- The canvas's "now" (canvas.tsx, NowIsland): who is at work, and
-   what a drawing changed. Under the views' switch, over the board. --- */
-.now-island { position: absolute; z-index: 4; left: 50%; display: flex; max-width: min(640px, calc(100% - 3rem)); flex-direction: column; align-items: center; gap: 6px; transform: translateX(-50%); pointer-events: none; }
-.now-row { max-width: 100%; }
-.now-row { display: flex; min-width: 0; align-items: center; gap: 9px; border: 1px solid var(--border); border-radius: 999px; background: color-mix(in srgb, var(--surface) 92%, transparent); padding: 5px 14px 5px 6px; box-shadow: var(--shadow-soft); backdrop-filter: blur(8px); pointer-events: auto; animation: now-in 220ms ease-out; }
-@keyframes now-in { from { opacity: 0; transform: translateY(-4px); } }
-.now-avatar { display: grid; flex: none; place-items: center; width: 24px; }
-.now-name { flex: none; color: var(--fg); font-family: var(--font-display); font-size: 13px; font-weight: 750; }
-.now-line { min-width: 0; flex: 0 1 auto; overflow: hidden; color: var(--fg-1); font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
-.now-detail { min-width: 0; flex: 1; overflow: hidden; color: var(--fg-3); font-family: var(--font-mono); font-size: 11.5px; text-overflow: ellipsis; white-space: nowrap; }
-/* A work row's edge breathes in the working colour. */
-.now-work { border-color: color-mix(in srgb, var(--working) 45%, var(--border)); }
-/* The update: the accent, with a way to play just what is new. */
-.now-update { border-color: color-mix(in srgb, var(--primary) 55%, var(--border)); padding: 4px 4px 4px 14px; box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 14%, transparent), var(--shadow-soft); }
-.now-update-mark { flex: none; color: var(--primary); }
-.now-update-text { min-width: 0; flex: 1; overflow: hidden; color: var(--fg-1); font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
-.now-update-text strong { color: var(--fg); }
-.now-update-play { display: inline-flex; flex: none; align-items: center; gap: 6px; border: 0; border-radius: 999px; background: var(--primary); padding: 5px 7px 5px 12px; color: var(--primary-fg); font-size: 12.5px; font-weight: 700; box-shadow: 0 2px 0 var(--primary-ledge); }
-.now-update-play:hover { filter: brightness(1.06); }
-.now-update-play kbd { border: 1px solid currentColor; border-radius: 5px; padding: 0 4px; font-family: var(--font-body); font-size: 10px; opacity: 0.75; }
-
-@media (prefers-reduced-motion: reduce) { .now-row { animation: none; } }
-
-.now-more { flex: none; border-radius: 999px; background: color-mix(in srgb, var(--working) 18%, transparent); padding: 1px 7px; color: color-mix(in srgb, var(--working) 80%, var(--fg)); font-size: 11.5px; font-weight: 800; }
-
-/* The app's mark at the top of the left bar: the mark alone while the bar
-   is closed, with its name while it is open. */
-.sidebar-mark { display: flex; height: 44px; flex: none; align-items: center; gap: 0.45rem; padding: 0 0 0 15px; }
-.sidebar-mark img { width: 44px; height: auto; flex: none; }
-.sidebar-mark .app-title { font-size: 1.15rem; }
-.agents-sidebar:not(.agents-sidebar-open) .sidebar-mark .app-title { display: none; }
-
-/* --- The canvas fills the window; the rest floats on it --- */
-.app-header { z-index: 30; user-select: none; -webkit-user-select: none; }
-.app-canvas .content-area { top: 0; left: 0; }
-.app-canvas .app-header { position: absolute; top: 0; right: 0; left: 0; }
-/* The views' switch sits under the header, over the board. */
-.app-canvas .convo-views { top: 64px; box-shadow: var(--shadow-soft); }
-/* The left bar and the workers panel float: only what is in them takes the
-   pointer, the board takes the rest. */
-.app-canvas .agents-sidebar:not(.agents-sidebar-open), .app-canvas .sub-issues { pointer-events: none; }
-.app-canvas .agents-sidebar:not(.agents-sidebar-open) > *, .app-canvas .agents-sidebar .agent-row, .app-canvas .sub-issue { pointer-events: auto; }
-.app-canvas .agents-sidebar:not(.agents-sidebar-open) .agents-list { pointer-events: none; }
-.app-canvas .sub-issues { -webkit-mask-image: none; mask-image: none; }
-/* The canvas's own ground goes to the window's edges. */
-.app-canvas .convo { background: transparent; }
-
 /* What a drawing added or changed: a badge on the shape's top right corner
    (canvas.tsx, ChangeBadges), in the accent; a new shape's is filled. */
 .change-badges { position: absolute; z-index: 3; inset: 0; overflow: hidden; pointer-events: none; }
@@ -834,3 +787,40 @@ body { overflow: hidden; color: var(--fg); }
 .kind-add { display: flex; align-items: center; justify-content: center; gap: 0.4rem; border: 1.5px dashed var(--border-strong); border-radius: 0.9rem; background: transparent; padding: 0.8rem; color: var(--fg-2); font-size: 0.88rem; font-weight: 650; }
 .kind-add:hover { border-color: var(--fg-3); color: var(--fg); }
 .setup-short { resize: none; padding: 0.55rem 0.7rem; font-size: 0.9rem; line-height: 1.5; }
+
+/* The dock's first line (canvas.tsx, DockHeader): who, and what is going
+   on, above the step's words and the controls. */
+.dock-header { display: flex; min-width: 0; align-items: center; gap: 8px; margin: -2px 0 2px; border-bottom: 1px solid color-mix(in srgb, var(--border) 70%, transparent); padding: 0 2px 10px; font-size: 13px; }
+.dock-header-avatar { display: grid; flex: none; place-items: center; width: 24px; }
+.dock-header-name { flex: none; color: var(--fg); font-family: var(--font-display); font-weight: 750; }
+.dock-header-line { min-width: 0; flex: 0 1 auto; overflow: hidden; color: var(--fg-2); text-overflow: ellipsis; white-space: nowrap; }
+.dock-header-quiet { color: var(--fg-3); }
+.dock-header-detail { min-width: 0; flex: 1; overflow: hidden; color: var(--fg-3); font-family: var(--font-mono); font-size: 11.5px; text-overflow: ellipsis; white-space: nowrap; }
+.dock-header-working .dock-header-line { color: color-mix(in srgb, var(--working) 85%, var(--fg)); }
+.dock-header-more { flex: none; border-radius: 999px; background: color-mix(in srgb, var(--working) 18%, transparent); padding: 1px 7px; color: color-mix(in srgb, var(--working) 80%, var(--fg)); font-size: 11.5px; font-weight: 800; }
+.dock-header-new { display: inline-flex; flex: none; align-items: center; gap: 4px; margin-left: auto; border-radius: 999px; background: color-mix(in srgb, var(--primary) 18%, transparent); padding: 2px 9px; color: var(--primary); font-size: 12px; font-weight: 750; }
+.dock-header-news .dock-header-line { color: var(--fg-1); }
+.agent-canvas-dock-placeholder .dock-header { margin-bottom: 0.2rem; }
+
+/* The app's mark at the top of the left bar: the mark alone while the bar
+   is closed, with its name while it is open. */
+.sidebar-mark { display: flex; height: 44px; flex: none; align-items: center; gap: 0.45rem; padding: 0 0 0 15px; }
+.sidebar-mark img { width: 44px; height: auto; flex: none; }
+.sidebar-mark .app-title { font-size: 1.15rem; }
+.agents-sidebar:not(.agents-sidebar-open) .sidebar-mark .app-title { display: none; }
+
+/* --- The canvas fills the window; the rest floats on it --- */
+.app-header { z-index: 30; user-select: none; -webkit-user-select: none; }
+.app-canvas .content-area { top: 0; left: 0; }
+.app-canvas .app-header { position: absolute; top: 0; right: 0; left: 0; }
+/* The views' switch sits under the header, over the board. */
+.app-canvas .convo-views { top: 64px; box-shadow: var(--shadow-soft); }
+/* The left bar and the workers panel float: only what is in them takes the
+   pointer, the board takes the rest. */
+.app-canvas .agents-sidebar:not(.agents-sidebar-open), .app-canvas .sub-issues { pointer-events: none; }
+.app-canvas .agents-sidebar:not(.agents-sidebar-open) > *, .app-canvas .agents-sidebar .agent-row, .app-canvas .sub-issue { pointer-events: auto; }
+.app-canvas .agents-sidebar:not(.agents-sidebar-open) .agents-list { pointer-events: none; }
+.app-canvas .sub-issues { -webkit-mask-image: none; mask-image: none; }
+/* The canvas's own ground goes to the window's edges. */
+.app-canvas .convo { background: transparent; }
+
