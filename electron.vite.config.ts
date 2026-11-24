@@ -7,7 +7,10 @@ import react from "@vitejs/plugin-react";
 
 const here = dirname(fileURLToPath(import.meta.url));
 // TTMI's voice, copied from TTMI's web app (voice/ttmi).
-const TTMI_VOICE = resolve(here, "voice/ttmi");
+// Paths compared with forward slashes: on Windows the importer comes with
+// them, and resolve() gives backslashes.
+const slashes = (path: string) => path.replace(/\\/g, "/");
+const TTMI_VOICE = slashes(resolve(here, "voice/ttmi"));
 const STUBS = resolve(here, "src/renderer/ttmiVoiceStubs.ts");
 
 // The voice's imports from its own web app go to Flock's stand-ins
@@ -19,7 +22,7 @@ function ttmiVoice(): Plugin {
     name: "flock-ttmi-voice",
     enforce: "pre",
     async resolveId(source, importer, options) {
-      if (!importer || !importer.startsWith(TTMI_VOICE)) return null;
+      if (!importer || !slashes(importer).startsWith(TTMI_VOICE)) return null;
       if (stubbed.has(source)) return STUBS;
       if (source.startsWith(".") || source.startsWith("/") || source.startsWith("\0")) return null;
       return this.resolve(source, resolve(here, "src/renderer/index.html"), { ...options, skipSelf: true });
