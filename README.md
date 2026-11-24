@@ -86,4 +86,4 @@ docs/design.md   The design this started from
 
 ## A joke
 
-Why do programmers prefer dark mode? Because light attracts bugs.
+There are only 10 kinds of people in the world: those who understand binary, and those who don't.
