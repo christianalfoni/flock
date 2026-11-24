@@ -559,7 +559,6 @@ export function AgentCanvas({ agentId, name, voice: agentVoice, pullRequests: fo
     const timer = setTimeout(() => finishAsk(false), 4000);
     return () => clearTimeout(timer);
   }, [open?.id, open?.status, answering]);
-  const waitRow = hostedWorker ? { label: `${hostedWorker} · Working…` } : activity ?? { label: "Working…" };
   useEffect(() => {
     if (playing === undefined || paused || hosted || (!muted && narration.on)) return;
     const text = words[playing];
@@ -639,15 +638,9 @@ export function AgentCanvas({ agentId, name, voice: agentVoice, pullRequests: fo
       <AskDock
         key={open.id}
         question={open.question}
-        step={open.step}
-        stepName={titleOf(open.step)}
-        resumeName={titleOf(open.resumeStep ?? open.step)}
-        who={hostedWorker ?? name}
-        where={hostedUrl ? `#${hostedUrl.split("/").pop()}` : undefined}
         answer={answered ? open.summary : undefined}
+        resumeName={titleOf(open.resumeStep ?? open.step)}
         resumeStep={open.resumeStep ?? open.step}
-        activity={waitRow}
-        avatar={avatar}
         renderText={renderText}
         canListen={canSpeak}
         sounding={answerSounding}
@@ -698,7 +691,10 @@ export function AgentCanvas({ agentId, name, voice: agentVoice, pullRequests: fo
   // The dock's first line: who is at work and on what, else what is new for
   // you, else whose canvas this is (DockHeader).
   const news = !hosted && freshShown.length > 0 ? { steps: freshShown.length, updated: Boolean(updatedAt) } : undefined;
-  const dockHeader = <DockHeader name={name} avatar={avatar} live={live} news={news} hosted={hostedWorker} />;
+  // An ask on show: the top line says who is on it, then who answered.
+  const askPlace = open ? [titleOf(open.step)?.replace(/^Step/, "step").replace(/^Overview$/, "the overview").replace(/^Summary$/, "the summary"), hostedUrl ? `#${hostedUrl.split("/").pop()}` : undefined].filter(Boolean).join(" of ") : "";
+  const askState = open ? { phase: answered ? "answered" as const : "waiting" as const, place: askPlace, by: hostedWorker ?? agentId } : undefined;
+  const dockHeader = <DockHeader name={name} avatar={avatar} live={live} news={askState ? undefined : news} hosted={hostedWorker} ask={askState} />;
   const playNew = () => {
     const start = freshRef.current[0];
     if (start === undefined) return;
@@ -988,40 +984,23 @@ export function AgentCanvas({ agentId, name, voice: agentVoice, pullRequests: fo
 // agent at work on it (its avatar, what it does now), then its answer, said
 // in its voice, with Continue taking you back into the walkthrough where the
 // answer says. One layout from asking to answered, so nothing jumps.
-function AskDock({ question, step, stepName, resumeName, who, where, answer, resumeStep, activity, avatar, renderText, canListen, sounding, onListen }: {
+function AskDock({ question, answer, resumeName, resumeStep, renderText, canListen, sounding, onListen }: {
   question: string;
-  step?: number;
-  stepName?: string;
-  resumeName?: string;
-  who: string;
-  where?: string;
   answer?: string;
+  resumeName?: string;
   resumeStep?: number;
-  activity: { label: string; tool?: string };
-  avatar(working: boolean): React.ReactNode;
   renderText(text: string): React.ReactNode;
   canListen: boolean;
   sounding: boolean;
   onListen(): void;
 }) {
-  const place = [stepName ? stepName.replace(/^Step/, "step").replace(/^Overview$/, "the overview").replace(/^Summary$/, "the summary") : step ? `step ${step}` : "", where ?? ""].filter(Boolean).join(" of ");
+  const back = resumeName ? resumeName.replace(/^Step/, "step").replace(/^Overview$/, "the overview").replace(/^Summary$/, "the summary") : resumeStep ? `step ${resumeStep}` : "";
   return (
-    <div className="ask-dock" ref={keepWheel}>
-      <p className="ask-dock-eyebrow">
-        {answer ? <><strong>{who}</strong> answered</> : <>You asked{place ? <> about <strong>{place}</strong></> : ""}</>}
-      </p>
-      <div className="ask-dock-question">{renderText(question)}</div>
+    <div className={`ask-dock ${answer ? "ask-dock-answered" : ""}`} ref={keepWheel}>
       {answer ? (
-        <div className="ask-dock-answer">
-          <span className="ask-dock-avatar">{avatar(sounding)}</span>
-          <div className="ask-dock-answer-text">{renderText(answer)}</div>
-        </div>
+        <div key="answer" className="ask-dock-text ask-dock-answer-text">{renderText(answer)}</div>
       ) : (
-        <div className="ask-dock-working">
-          <span className="ask-dock-avatar">{avatar(true)}</span>
-          <span className="ask-dock-working-label">{activity.label}</span>
-          {activity.tool && <span className="ask-dock-working-tool">{activity.tool}</span>}
-        </div>
+        <div key="question" className="ask-dock-text ask-dock-question">{renderText(question)}</div>
       )}
       <div className="ask-dock-foot">
         {answer && canListen && (
@@ -1029,7 +1008,7 @@ function AskDock({ question, step, stepName, resumeName, who, where, answer, res
             {sounding ? <Square size={13} /> : <Volume2 size={15} />}{sounding ? "Stop" : "Play the answer"}<kbd>Space</kbd>
           </button>
         )}
-        <span className="ask-dock-hint"><kbd>Esc</kbd> back to the walkthrough{resumeName ? `, at ${resumeName.replace(/^Step/, "step").replace(/^Overview$/, "the overview").replace(/^Summary$/, "the summary")}` : resumeStep ? `, at step ${resumeStep}` : ""}</span>
+        <span className="ask-dock-hint"><kbd>Esc</kbd> back to the walkthrough{back ? `, at ${back}` : ""}</span>
       </div>
     </div>
   );
@@ -1096,8 +1075,22 @@ function ChangeBadges({ host, changed }: { host: React.RefObject<HTMLDivElement 
 // drawing brought steps you have not heard: that it updated the canvas, and
 // how many are new (the dock's Play then plays those). Else, quietly, whose
 // canvas this is.
-function DockHeader({ name, avatar, live, news, hosted }: { name: string; avatar(working: boolean): React.ReactNode; live: LiveRow[]; news?: { steps: number; updated: boolean }; hosted?: string }) {
+function DockHeader({ name, avatar, live, news, hosted, ask }: { name: string; avatar(working: boolean): React.ReactNode; live: LiveRow[]; news?: { steps: number; updated: boolean }; hosted?: string; ask?: { phase: "waiting" | "answered"; place: string; by: string } }) {
   const row = live[0];
+  // Asking: who is on it, and what it does now; then that it answered.
+  if (ask) {
+    const on = row && row.id === ask.by ? row : undefined;
+    const answered = ask.phase === "answered";
+    return (
+      <div className={`dock-header ${answered ? "dock-header-answered" : "dock-header-working"}`} aria-live="polite">
+        <span className="dock-header-avatar">{on && !answered ? on.avatar : avatar(!answered)}</span>
+        <span className="dock-header-name">{hosted ?? name}</span>
+        <span className="dock-header-line">{answered ? `answered your question${ask.place ? ` about ${ask.place}` : ""}` : `is on your question${ask.place ? ` about ${ask.place}` : ""}`}</span>
+        {!answered && on && <span className="dock-header-step">{on.line}</span>}
+        {!answered && on?.detail && <span className="dock-header-detail">{on.detail}</span>}
+      </div>
+    );
+  }
   return (
     <div className={`dock-header ${row ? "dock-header-working" : news ? "dock-header-news" : ""}`} aria-live="polite">
       <span className="dock-header-avatar">{row ? row.avatar : avatar(false)}</span>

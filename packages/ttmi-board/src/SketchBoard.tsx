@@ -3389,6 +3389,7 @@ export function SketchBoard({ initial, initialSteps = [], initialGroups = [], in
       )}
       {ask && (
         <div className="sketch-chrome sketch-steps sketch-steps-ask" data-ask="true" {...(playing !== undefined ? { "data-playback": beat } : {})}>
+          {ask.view && ask.phase !== "compose" && panelHeader}
           {ask.view && ask.phase !== "compose" ? <div className="sketch-caption sketch-ask" data-testid="ask" data-ask-phase={ask.phase}>{ask.view}</div>
             : <AskView phase={ask.phase} question={ask.question} copied={ask.copied} summary={ask.summary} fieldRef={askFieldRef} onQuestion={ask.onQuestion} onCopy={ask.onCopy} onCancel={ask.onCancel} onClose={ask.onClose} onContinue={ask.onContinue} />}
         </div>

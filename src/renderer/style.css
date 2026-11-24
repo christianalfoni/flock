@@ -824,3 +824,18 @@ body { overflow: hidden; color: var(--fg); }
 /* The canvas's own ground goes to the window's edges. */
 .app-canvas .convo { background: transparent; }
 
+
+/* The ask in the dock's middle: the question, then the answer in its
+   place (canvas.tsx, AskDock); who is on it is the dock's top line. */
+.agent-canvas .sketch-steps-ask .dock-header { margin-bottom: 4px; }
+.ask-dock { gap: 12px; padding: 4px 2px 0; }
+.ask-dock-text { animation: ask-dock-in 260ms ease-out; }
+@keyframes ask-dock-in { from { opacity: 0; transform: translateY(3px); } }
+.ask-dock .ask-dock-question { max-height: 9em; border-left: 3px solid color-mix(in srgb, var(--primary) 55%, transparent); padding: 2px 0 2px 14px; }
+.ask-dock .ask-dock-question .chat-markdown { color: var(--fg-1); font-size: 17px; line-height: 1.5; }
+.ask-dock .ask-dock-answer-text { max-height: 40vh; }
+.ask-dock .ask-dock-answer-text .chat-markdown { color: var(--fg); font-size: 17px; line-height: 1.5; }
+.dock-header-answered .dock-header-line { color: var(--fg-1); }
+@media (prefers-reduced-motion: reduce) { .ask-dock-text { animation: none; } }
+.dock-header-step { flex: none; color: var(--fg-2); white-space: nowrap; }
+.dock-header-step::before { content: "·"; margin-right: 8px; color: var(--fg-4); }
