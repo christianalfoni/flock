@@ -63,6 +63,10 @@ declare module "ttmi-voice" {
   export type Clip = { url: string; cues: { name: string; at: number }[] };
   export function voice(): {
     install(): void;
+    // Loads a voice already installed.
+    load(): void;
+    // Clears a remembered failure and starts the engine again.
+    retry(): void;
     status: EngineStatus;
     clip(step: { segments: { text: string }[] }, voice: string, urgent?: boolean, sketch?: string): Promise<Clip>;
   };

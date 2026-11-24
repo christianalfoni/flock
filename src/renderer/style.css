@@ -185,32 +185,6 @@ button:disabled { cursor: not-allowed; opacity: 0.45; }
 /* An ask waiting for its answer: the question goes straight to the
    orchestrator, so no prompt to copy; the board's line says so instead. */
 .agent-canvas .sketch-ask-waiting { display: none; }
-/* In its place, the chat's working row (canvas.tsx), on one line. */
-.agent-canvas .agent-canvas-working { margin-top: 0.15rem; }
-/* Answered: your question and the answer as two bubbles (canvas.tsx), above
-   Listen and Continue, in place of the board's answer line. */
-.agent-canvas .sketch-ask[data-ask-phase="summary"] .sketch-narration { display: none; }
-.agent-canvas .agent-canvas-thread { display: flex; order: -1; flex-direction: column; align-self: stretch; gap: 8px; }
-.agent-canvas .agent-canvas-answer { align-self: flex-start; max-width: 92%; margin: 0; border-radius: 16px 16px 16px 4px; background: var(--surface-3); padding: 8px 12px; }
-/* The question and the answer, as the chat writes them, at the panel's size. */
-.agent-canvas .agent-canvas-thread .chat-markdown { font-size: 15px; line-height: 1.5; }
-.agent-canvas .agent-canvas-thread .chat-markdown > * + * { margin-top: 0.5rem; }
-/* A long question or answer scrolls in its own bubble: the working row and
-   Continue stay in view under it. */
-.agent-canvas .agent-canvas-question:not(.agent-canvas-question-clamped) .agent-canvas-question-text, .agent-canvas .agent-canvas-answer { max-height: 38vh; overflow-y: auto; overscroll-behavior: contain; }
-.agent-canvas .sketch-ask-wait > .sketch-ask-bubble { display: none; }
-.agent-canvas .agent-canvas-question { align-self: flex-end; max-width: 92%; border-radius: 16px 16px 4px 16px; background: color-mix(in srgb, var(--board-accent) 16%, var(--board-panel)); padding: 8px 12px; }
-.agent-canvas .agent-canvas-question-clamped .agent-canvas-question-text { max-height: 8.5em; overflow: hidden; -webkit-mask-image: linear-gradient(#000 60%, transparent); mask-image: linear-gradient(#000 60%, transparent); }
-.agent-canvas .agent-canvas-question-more { margin-top: 4px; border: 0; background: none; padding: 0; color: var(--board-muted); font-size: 13px; cursor: pointer; }
-.agent-canvas .agent-canvas-question-more:hover { color: var(--fg); }
-/* Nothing to copy, and no cancel: the ask is answered in its own time. */
-.agent-canvas .sketch-ask-actions, .agent-canvas .sketch-ask[data-ask-phase="waiting"] .sketch-ask-close { display: none; }
-/* An answer is heard first, then goes on (canvas.tsx, askAction). */
-.agent-canvas .sketch-ask-continue .sketch-ask-hint { font-size: 0; }
-.agent-canvas .sketch-ask-continue .sketch-ask-hint kbd { font-size: 11px; }
-.agent-canvas .sketch-ask-continue .sketch-ask-hint::after { content: " " var(--agent-canvas-ask-hint); font-size: 13px; }
-.agent-canvas .sketch-ask-continue .sketch-ask-send { font-size: 0; }
-.agent-canvas .sketch-ask-continue .sketch-ask-send::after { content: var(--agent-canvas-ask-action); font-size: 14px; }
 /* A pull request's badge (its number and worker) opens the pull request
    panel; its colour comes from canvas.tsx. */
 .agent-canvas .sketch-portal > .sketch-tag { cursor: pointer; }
@@ -238,11 +212,6 @@ button:disabled { cursor: not-allowed; opacity: 0.45; }
 .agent-canvas-empty { position: absolute; top: 45%; left: 0; right: 0; color: var(--fg-3); text-align: center; pointer-events: none; }
 .agent-canvas-error { position: absolute; bottom: 0.8rem; left: 50%; max-width: min(36rem, 90%); transform: translateX(-50%); border: 1px solid color-mix(in srgb, #ef4565 45%, transparent); border-radius: 0.5rem; background: color-mix(in srgb, #ef4565 12%, var(--bg)); padding: 0.35rem 0.7rem; color: #ef4565; font-size: 0.78rem; }
 .agent-canvas-slot:has(.sketch) > .agent-canvas-skeleton { display: none; }
-/* No label (Overview, Step N, Summary) before the step bar. */
-.agent-canvas .sketch-step-title { display: none; }
-/* The narration and the ask's question and answer can be selected and
-   copied (the board turns selection off everywhere else on it). */
-.agent-canvas .sketch-narration, .agent-canvas .agent-canvas-thread { user-select: text; -webkit-user-select: text; cursor: text; }
 .agent-canvas .sketch-narration .sketch-ref { cursor: pointer; }
 /* Always the walkthrough: no Play in the corner (the board shows it while the
    walkthrough is not open, as a canvas loads or an ask is on show). */
@@ -563,3 +532,84 @@ body { overflow: hidden; color: var(--fg); }
 .permission-head { display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; }
 .permission-input { max-height: 10rem; overflow: auto; margin: 0; border-radius: 0.5rem; background: var(--code-bg); padding: 0.5rem 0.6rem; font-family: var(--font-mono); font-size: 0.76rem; white-space: pre-wrap; overflow-wrap: anywhere; }
 .permission-actions { display: flex; justify-content: flex-end; gap: 0.5rem; }
+
+/* --- The walkthrough's dock: playing, asking, answered (canvas.tsx) ---
+   One card on the message box, the same in every state: a small line that
+   says where you are, one large line in the narration's size (the step's
+   words, your question, the answer), and the controls under it. */
+.agent-canvas .sketch-steps.sketch-steps-ask { width: min(820px, calc(100% - 3rem)); }
+.agent-canvas .sketch-steps-ask .sketch-ask { gap: 0; }
+/* The narration, the question and the answer can be selected and copied
+   (the board turns selection off everywhere else on it). */
+.agent-canvas .sketch-narration, .agent-canvas .ask-dock-question, .agent-canvas .ask-dock-answer-text { user-select: text; -webkit-user-select: text; cursor: text; }
+.agent-canvas .sketch-narration .sketch-ref { cursor: pointer; }
+/* Where the walkthrough is, before its bar: Overview, Step 2, Summary. */
+.agent-canvas .sketch-step-title { flex: none; color: var(--fg-3); font-size: 12px; font-weight: 700; letter-spacing: 0.02em; }
+
+.ask-dock { display: flex; flex-direction: column; gap: 10px; padding: 2px 2px 0; }
+.ask-dock-eyebrow { margin: 0; color: var(--fg-3); font-size: 12px; font-weight: 600; letter-spacing: 0.02em; }
+.ask-dock-eyebrow strong { color: var(--fg-1); font-weight: 700; }
+/* Your question: a quote, as you wrote it; a long one scrolls in place. */
+.ask-dock-question { max-height: 7.5em; overflow-y: auto; overscroll-behavior: contain; border-left: 3px solid color-mix(in srgb, var(--primary) 55%, transparent); padding: 1px 0 1px 12px; }
+.ask-dock-question .chat-markdown { color: var(--fg-1); font-size: 15px; line-height: 1.5; }
+.ask-dock-question .chat-markdown > * + * { margin-top: 0.4rem; }
+/* The agent: at work on it (its avatar bobbing, what it does now), then its answer. */
+.ask-dock-avatar { display: grid; flex: none; place-items: center; width: 30px; }
+.ask-dock-working { display: flex; min-width: 0; align-items: center; gap: 10px; color: var(--fg-2); font-size: 15px; }
+.ask-dock-working-label { flex: none; white-space: nowrap; }
+.ask-dock-working-tool { min-width: 0; flex: 1; overflow: hidden; color: var(--fg-3); font-family: var(--font-mono); font-size: 12.5px; text-overflow: ellipsis; white-space: nowrap; }
+.ask-dock-answer { display: flex; align-items: flex-start; gap: 10px; }
+.ask-dock-answer .ask-dock-avatar { margin-top: 2px; }
+.ask-dock-answer-text { min-width: 0; flex: 1; max-height: 38vh; overflow-y: auto; overscroll-behavior: contain; }
+.ask-dock-answer-text .chat-markdown { font-size: 17px; line-height: 1.5; }
+.ask-dock-answer-text .chat-markdown > * + * { margin-top: 0.5rem; }
+.ask-dock-foot { display: flex; align-items: center; gap: 8px; min-height: 34px; margin-top: 2px; }
+.ask-dock-hint { margin-right: auto; color: var(--fg-3); font-size: 12px; }
+.ask-dock kbd { display: inline-grid; min-width: 18px; height: 18px; place-items: center; border: 1px solid currentColor; border-radius: 5px; padding: 0 4px; font-family: var(--font-body); font-size: 10.5px; font-weight: 700; line-height: 1; opacity: 0.7; }
+.ask-dock-listen, .ask-dock-continue { display: inline-flex; height: 34px; align-items: center; gap: 7px; border-radius: 0.75rem; padding: 0 14px; font-size: 14px; font-weight: 700; }
+.ask-dock-listen { border: 1px solid var(--border); background: var(--surface); color: var(--fg-1); box-shadow: 0 2px 0 var(--border); }
+.ask-dock-listen:hover { background: var(--surface-3); color: var(--fg); }
+.ask-dock-continue { border: 0; background: var(--primary); color: var(--primary-fg); box-shadow: 0 2px 0 var(--primary-ledge); }
+.ask-dock-continue:hover { filter: brightness(1.06); }
+.ask-dock-listen:active, .ask-dock-continue:active { transform: translateY(1px); }
+
+/* The message box says where what you write goes: the step you are on, or
+   a pull request's canvas (main.tsx). */
+.convo-target { display: inline-flex; flex: none; align-self: center; align-items: center; gap: 5px; margin-right: 2px; border-radius: 999px; background: var(--primary-soft); padding: 3px 10px; color: var(--primary); font-size: 0.78rem; font-weight: 700; white-space: nowrap; }
+
+/* --- The first run (onboarding.tsx) --- */
+.onboarding { height: 100%; overflow-y: auto; padding: 2.5rem 1.5rem 4rem; }
+.onboarding-hero { width: min(620px, 100%); margin: 0 auto 2rem; text-align: center; }
+.onboarding-flock { display: flex; align-items: flex-end; justify-content: center; gap: 0.9rem; margin-bottom: 1.1rem; }
+.onboarding-hero h1 { margin: 0; color: var(--primary); font-family: var(--font-display); font-size: 2rem; font-weight: 750; letter-spacing: -0.02em; text-shadow: 0 0.05em 0 var(--primary-ledge); }
+.onboarding-hero p { margin: 0.7rem 0 0; color: var(--fg-2); font-size: 1rem; line-height: 1.6; }
+.onboarding-steps { display: flex; width: min(620px, 100%); flex-direction: column; gap: 0.8rem; margin: 0 auto; padding: 0; list-style: none; }
+.onboarding-step { display: flex; gap: 1rem; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); padding: 1.1rem 1.2rem; opacity: 0.55; box-shadow: var(--shadow-soft); transition: opacity 200ms, border-color 200ms; }
+.onboarding-step-on { border-color: var(--primary); opacity: 1; box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 16%, transparent), var(--shadow-soft); }
+.onboarding-step-done { opacity: 1; }
+.onboarding-step-mark { display: grid; width: 1.7rem; height: 1.7rem; flex: none; place-items: center; border-radius: 999px; background: var(--surface-3); color: var(--fg-2); font-size: 0.82rem; font-weight: 800; }
+.onboarding-step-on .onboarding-step-mark { background: var(--primary); color: var(--primary-fg); }
+.onboarding-step-done .onboarding-step-mark { background: color-mix(in srgb, #3ee08f 22%, transparent); color: #3ee08f; }
+.onboarding-step-body { display: flex; min-width: 0; flex: 1; flex-direction: column; gap: 0.5rem; }
+.onboarding-step-body h2 { margin: 0.15rem 0 0; font-family: var(--font-display); font-size: 1.05rem; font-weight: 750; }
+.onboarding-step-body > p { margin: 0; color: var(--fg-2); font-size: 0.9rem; line-height: 1.5; }
+.onboarding-step-body .primary { align-self: flex-start; }
+.onboarding-step .cli-list { margin: 0.2rem 0; }
+
+/* The voice check: pick, install, play, and say whether you heard it. */
+.voice-check { display: flex; flex-direction: column; gap: 0.7rem; margin-top: 0.3rem; border-radius: 0.75rem; background: var(--surface-2); padding: 0.8rem 0.9rem; }
+.voice-check-row { display: flex; align-items: center; gap: 0.8rem; }
+.voice-check-pick { display: flex; min-width: 0; flex: 1; align-items: center; gap: 0.6rem; margin: 0; }
+.voice-check-pick > span { color: var(--fg-3); font-size: 0.8rem; font-weight: 600; }
+.voice-check-pick select { flex: 1; padding: 0.4rem 0.55rem; font-size: 0.85rem; }
+.voice-check-state { display: inline-flex; flex: none; align-items: center; gap: 0.3rem; color: var(--fg-3); font-size: 0.8rem; font-weight: 700; }
+.voice-check-ready { color: #3ee08f; }
+.voice-check-unsupported { color: color-mix(in srgb, #ff8fa3 62%, var(--fg)); }
+.voice-check-bar { height: 5px; overflow: hidden; border-radius: 999px; background: var(--surface-3); }
+.voice-check-bar > span { display: block; height: 100%; border-radius: 999px; background: var(--primary); transition: width 200ms; }
+.voice-check-bar-busy { animation: ci-pulse 1.4s ease-in-out infinite; }
+.voice-check-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
+.voice-check-actions button { display: inline-flex; align-items: center; gap: 0.4rem; }
+.voice-check-note { margin: 0 auto 0 0; min-width: 12rem; flex: 1; color: var(--fg-2); font-size: 0.85rem; line-height: 1.5; }
+.voice-check-question { margin: 0 auto 0 0; color: var(--fg); font-size: 0.95rem; font-weight: 700; }
+.voice-check-good { display: inline-flex; align-items: center; gap: 0.35rem; color: #3ee08f; }

@@ -11,8 +11,9 @@ import { ArrowLeft, ArrowUp, FolderGit2, PanelRight, Plus, RotateCcw, Settings a
 import { DEFAULT_VOICE, VOICES } from "ttmi-voices";
 import type { Agent, AppState, CliId, PermissionMode, SessionState, Settings, TranscriptEntry, Worker } from "../shared/types";
 import type { CanvasPullRequest } from "../shared/pullRequestCanvas";
-import { canvasFocus } from "./canvasStep";
+import { canvasFocus, useCanvasFocus } from "./canvasStep";
 import { AGENT_COLORS, AgentAvatar, agentColor } from "./avatar";
+import { Onboarding, VoiceCheck } from "./onboarding";
 import markUrl from "./mark.svg";
 import "./style.css";
 
@@ -74,6 +75,8 @@ function App() {
   // Its own view: Canvas or Chat, as you left it.
   const view = agent ? views[agent.id] ?? (recall(`flock.view.${agent.id}`) as "canvas" | "chat" | undefined) ?? "canvas" : "chat";
   const onCanvas = Boolean(agent && !worker && view === "canvas");
+  // The first run, before any agent: the guide (onboarding.tsx).
+  const onboarding = !state.settings.onboarded && !state.agents.length;
   const showWorkers = Boolean(agent && !settings && (!onCanvas || workersPanel));
   return (
     <main className="h-screen overflow-hidden bg-[var(--bg)] text-[var(--fg)]" style={{ "--sidebar": `${SIDEBAR_WIDTH}px`, "--page-right": `${showWorkers ? RIGHT_WIDTH : 0}px` } as React.CSSProperties}>
@@ -99,16 +102,18 @@ function App() {
         </div>
       </header>
 
-      <AgentsSidebar state={state} unheard={unheard} selectedId={settings ? undefined : agent?.id} onSelect={(id) => { setSelected(id); setSettings(false); }} />
+      {!onboarding && <AgentsSidebar state={state} unheard={unheard} selectedId={settings ? undefined : agent?.id} onSelect={(id) => { setSelected(id); setSettings(false); }} />}
 
       <section className="content-area" style={{ right: "var(--page-right)" }}>
-        {settings ? (
+        {onboarding ? (
+          <Onboarding state={state} onDone={(next) => void window.dispatch.saveSettings(next)} />
+        ) : settings ? (
           <SettingsPanel state={state} onClose={() => setSettings(false)} />
         ) : !agent ? (
           <div className="grid h-full place-items-center">
             <div className="agents-welcome">
               <p className="agents-welcome-title">Create your first agent</p>
-              <p>Use New agent in the left bar: pick a git repository. You talk to it; it answers by drawing on its canvas, and starts workers, each in its own git worktree, to build.</p>
+              <p>Give it a name and pick its git repository in the form on the left. You talk to it; it answers by drawing on its canvas, and starts workers, each in its own git worktree, to build.</p>
             </div>
           </div>
         ) : worker ? (
@@ -150,7 +155,7 @@ function AgentsSidebar({ state, unheard, selectedId, onSelect }: { state: AppSta
   const [name, setName] = useState("");
   const [repo, setRepo] = useState<string>();
   const [color, setColor] = useState(AGENT_COLORS[0]!);
-  const [voice, setVoice] = useState(DEFAULT_VOICE);
+  const [voice, setVoice] = useState(state.settings.voice ?? DEFAULT_VOICE);
   const [cli, setCli] = useState<CliId | undefined>();
   const [busy, setBusy] = useState(false);
   const chosenCli = cli ?? state.settings.defaultCli ?? state.clis.find((item) => item.installed && item.loggedIn)?.id ?? ready[0]?.id;
@@ -308,7 +313,7 @@ function WorkersPanel({ agent, state, selected, onSelect, onRemoved }: { agent: 
                 <div className="sub-issue-pulls">
                   {worker.pullRequests.map((pull) => (
                     <span key={pull.url} className={`source-badge source-badge-pr ${pull.state ? `source-badge-pr-${pull.state}` : ""}`} title={`${pull.title ?? pull.url}${pull.state ? ` · ${pull.state}` : ""}${pull.ciState ? ` · CI ${pull.ciState}` : ""}`} onClick={(event) => { event.stopPropagation(); void window.dispatch.openExternal(pull.url); }}>
-                      {pull.ciState && pull.state !== "merged" && pull.state !== "closed" && <span className={`ci-indicator ci-${pull.ciState}`} />}
+                      {pull.ciState && pull.ciState !== "none" && pull.state !== "merged" && pull.state !== "closed" && <span className={`ci-indicator ci-${pull.ciState}`} />}
                       #{pull.number}
                     </span>
                   ))}
@@ -413,6 +418,14 @@ function Conversation({ id, agent, worker, state, view, onView, onBack, panel }:
     [JSON.stringify(workers.map((item) => [item.id, item.pullRequests, state.sessions[item.id]?.status]))],
   );
   const [draft, setDraft] = useState(() => recall(`flock.draft.${id}`) ?? "");
+  // On the canvas: where what you write goes (the step you are on, or a
+  // pull request's canvas), and whether an ask is on show.
+  const focus = useCanvasFocus(agent.id);
+  const target = showCanvas ? [focus.pull ? `#${focus.pull.url.split("/").pop()} · ${focus.pull.worker}` : "", focus.step ? `Step ${focus.step}` : ""].filter(Boolean).join(" · ") : "";
+  const placeholder = !showCanvas ? (worker ? `Message ${worker.id}…` : `Message ${agent.name}…`)
+    : focus.ask === "answered" ? "Ask a follow-up…"
+      : focus.ask === "waiting" ? "Add to your question…"
+        : focus.step ? "Ask about this step…" : `Ask ${focus.pull ? focus.pull.worker : agent.name} about the canvas…`;
   const [error, setError] = useState<string>();
   useEffect(() => remember(`flock.draft.${id}`, draft), [id, draft]);
   // On a canvas, what you write is an ask on the step you are on (to the
@@ -475,6 +488,7 @@ function Conversation({ id, agent, worker, state, view, onView, onBack, panel }:
             {...(busy ? { activity: { label: session?.activity?.label ?? "Working…", ...(session?.activity?.tool ? { tool: session.activity.tool } : {}) } } : {})}
             onOpenPull={(url) => void window.dispatch.openExternal(url)}
             renderText={(text) => <ChatMarkdown text={text} />}
+            avatar={(atWork) => <AgentAvatar seed={agent.id} color={agentColor(agent)} size={28} working={atWork} />}
           />
         </React.Suspense>
       ) : (
@@ -482,11 +496,12 @@ function Conversation({ id, agent, worker, state, view, onView, onBack, panel }:
       )}
       <div className="convo-composer">
         <div className={`convo-box ${busy ? "convo-box-working" : ""}`}>
+          {target && <span className="convo-target" title="What you write is an ask about this">{target}</span>}
           <div className="convo-input">
             <textarea
               rows={1}
               value={draft}
-              placeholder={showCanvas ? `Ask ${agent.name} about this step…` : worker ? `Message ${worker.id}…` : `Message ${agent.name}…`}
+              placeholder={placeholder}
               onChange={(event) => setDraft(event.target.value)}
               onKeyDown={(event) => {
                 if (event.key !== "Enter" || event.shiftKey || event.nativeEvent.isComposing) return;
@@ -546,6 +561,9 @@ function SettingsPanel({ state, onClose }: { state: AppState; onClose(): void })
           <option value="">The first one ready</option>
           {state.clis.filter((cli) => cli.installed).map((cli) => <option key={cli.id} value={cli.id}>{cli.name}</option>)}
         </select>
+        <h2>Voice</h2>
+        <small>The voice new agents get. Each agent keeps the one it was made with.</small>
+        <VoiceCheck voiceId={settings.voice ?? DEFAULT_VOICE} onVoice={(id) => update({ ...settings, voice: id })} />
         <h2>What agents may do without asking</h2>
         {(["orchestrator", "worker"] as const).map((role) => (
           <div key={role}>

@@ -47,6 +47,9 @@ test("where a pull request stands, and its badge", () => {
   assert.equal(pullStanding({ ...pull, state: "conflict", ciState: "failing" }).tone, "red");
   assert.equal(pullStanding({ ...pull, state: "conflict" }).tone, "orange");
   assert.equal(pullStanding(undefined).label, "Not followed");
+  // No CI at all: open, and green (nothing holds it back); not known yet: grey.
+  assert.deepEqual(pullStanding({ ...pull, ciState: "none" }), { label: "Open", tone: "green" });
+  assert.equal(pullStanding({ ...pull, ciState: "unknown" }).tone, "muted");
   assert.equal(pullBadge(URL), "#18381");
   assert.equal(pullBadge(URL, "W104"), "#18381 · W104");
 });

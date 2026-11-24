@@ -12,9 +12,8 @@
 // to dive into and play, under a badge with where it stands, from Flock's
 // own facts, so it is current without a redraw.
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import { createRoot, type Root } from "react-dom/client";
-import { ArrowLeft, Volume2, VolumeX } from "lucide-react";
+import { ArrowLeft, CornerDownLeft, Volume2, VolumeX } from "lucide-react";
 import { COLORS, firstStep, ON_COLORS, SketchBoard, type SketchApi } from "@ttmi/board";
 import { parseSketch, sketchTitle, stepParts, textMeasure, type Shape, type SketchGroup, type SketchStep } from "@ttmi/format";
 import { DEFAULT_VOICE, pausedClip, pausePlayback, resumePlayback, speakStep, stepLoads, stopPlayback, useNarration, voice, type Preparation } from "ttmi-voice";
@@ -67,7 +66,9 @@ const TONES: Record<string, { color: string; on: string }> = {
 type CanvasProps = { agentId: string; name: string; voice?: string; pullRequests?: CanvasPullRequest[]; activity?: { label: string; tool?: string }; working?: boolean; onOpenPull?(url: string): void;
   // Writes a message the way the chat does (markdown): the ask's question and
   // its answer. Given by the page, which owns the chat's markdown.
-  renderText?(text: string): React.ReactNode };
+  renderText?(text: string): React.ReactNode;
+  // The agent's avatar, at work or not, for the ask's dock.
+  avatar?(working: boolean): React.ReactNode };
 
 // The canvases you have looked at stay drawn, each in its own element, so
 // coming back to an agent shows its canvas at once, as you left it. The slot
@@ -89,19 +90,6 @@ function keepWheel(node: HTMLElement | null) {
   if (!node || wheelKept.has(node)) return;
   wheelKept.add(node);
   node.addEventListener("wheel", (event) => event.stopPropagation(), { passive: true });
-}
-
-// Your question in the ask's thread. A long one (a paste) shows its first
-// lines, and all of it on Show all.
-function AskBubble({ text, render }: { text: string; render(text: string): React.ReactNode }) {
-  const [whole, setWhole] = useState(false);
-  const long = text.length > 400 || text.split("\n").length > 8;
-  return (
-    <div className={`agent-canvas-question ${long && !whole ? "agent-canvas-question-clamped" : ""}`}>
-      <div className="agent-canvas-question-text">{render(text)}</div>
-      {long && <button type="button" className="agent-canvas-question-more" onClick={() => setWhole((value) => !value)}>{whole ? "Show less" : "Show all"}</button>}
-    </div>
-  );
 }
 
 export function CanvasSlot(props: CanvasProps) {
@@ -161,7 +149,7 @@ function useKnownPulls(agentId: string, current: CanvasPullRequest[]): CanvasPul
   }, [key, JSON.stringify(current)]);
 }
 
-export function AgentCanvas({ agentId, name, voice: agentVoice, pullRequests: followed = [], activity, working = false, onOpenPull, renderText = (text) => <p>{text}</p>, active = true }: CanvasProps & { active?: boolean }) {
+export function AgentCanvas({ agentId, name, voice: agentVoice, pullRequests: followed = [], activity, working = false, onOpenPull, renderText = (text) => <p>{text}</p>, avatar = () => null, active = true }: CanvasProps & { active?: boolean }) {
   const pullRequests = useKnownPulls(agentId, followed);
   const [loaded, setLoaded] = useState<Canvas>();
   const [title, setTitle] = useState<string>();
@@ -458,8 +446,13 @@ export function AgentCanvas({ agentId, name, voice: agentVoice, pullRequests: fo
   // step, to the orchestrator, or inside a pull request to its worker.
   useEffect(() => {
     const step = playing === undefined ? undefined : playing - firstStep(said.steps) + 1;
-    setCanvasFocus(agentId, { ...(step ? { step } : {}), ...(hostedUrl && hostedWorker ? { pull: { url: hostedUrl, worker: hostedWorker } } : {}) });
-  }, [agentId, playing, said, hostedUrl, hostedWorker]);
+    const shown = shownAsks.find((item) => item.status !== "done");
+    const phase = shown?.status;
+    // While an ask is on show the walkthrough stands still: a follow-up is
+    // about the step that ask was on.
+    const at = step ?? shown?.step;
+    setCanvasFocus(agentId, { ...(at ? { step: at } : {}), ...(hostedUrl && hostedWorker ? { pull: { url: hostedUrl, worker: hostedWorker } } : {}), ...(phase === "waiting" || phase === "answered" ? { ask: phase } : {}) });
+  }, [agentId, playing, said, hostedUrl, hostedWorker, shownAsks]);
 
   // A pull request's canvas drawn again while you are inside it: the board
   // shows the new drawing in place (TTMI's board follows the canvas it is
@@ -522,23 +515,6 @@ export function AgentCanvas({ agentId, name, voice: agentVoice, pullRequests: fo
     const timer = setTimeout(() => finishAsk(false), 4000);
     return () => clearTimeout(timer);
   }, [open?.id, open?.status, answering]);
-  // The ask as a conversation, in the board's ask panel: while it waits,
-  // your bubble and the chat's working row (the same dot, words and look);
-  // answered, your bubble and the answer as the agent's bubble, above
-  // Listen and Continue (the board's own answer line is hidden).
-  const [waitSlot, setWaitSlot] = useState<Element | null>(null);
-  useEffect(() => {
-    const node = host.current;
-    if (!node || !open || open.status === "done") {
-      setWaitSlot(null);
-      return;
-    }
-    const find = () => setWaitSlot(node.querySelector(".sketch-ask-wait"));
-    find();
-    const watcher = new MutationObserver(find);
-    watcher.observe(node, { childList: true, subtree: true });
-    return () => watcher.disconnect();
-  }, [open?.id, open?.status, loaded, answered]);
   const waitRow = hostedWorker ? { label: `${hostedWorker} · Working…` } : activity ?? { label: "Working…" };
   useEffect(() => {
     if (playing === undefined || paused || hosted || (!muted && narration.on)) return;
@@ -582,12 +558,10 @@ export function AgentCanvas({ agentId, name, voice: agentVoice, pullRequests: fo
     else setAsks(done);
     for (const id of ids) void window.dispatch.closeCanvasAsk(hostedUrl ?? agentId, id);
   }, [shownAsks]);
-  const askAction = () => {
-    if (!open || !answered || !open.summary) return;
-    if (heard === open.id || !canSpeak) {
-      finishAsk(true);
-      return;
-    }
+  // Reads the answer aloud, in the agent's voice.
+  const listen = () => {
+    if (!open?.summary) return;
+    stopSummary.current?.();
     setHeard(open.id);
     pausePlayback();
     const text = open.summary;
@@ -597,7 +571,14 @@ export function AgentCanvas({ agentId, name, voice: agentVoice, pullRequests: fo
       failed() { stopSummary.current?.(); },
     });
   };
-  const listening = answered && open && heard !== open.id && canSpeak;
+  // Space or Enter on an answer: hear it first (when there is a voice),
+  // then go on with the walkthrough.
+  const listenFirst = Boolean(answered && open && heard !== open.id && canSpeak);
+  const askAction = () => {
+    if (!open || !answered || !open.summary) return;
+    if (listenFirst) listen();
+    else finishAsk(true);
+  };
   const askPanel = open ? {
     phase: answered ? "summary" as const : "waiting" as const,
     question: open.question,
@@ -608,6 +589,24 @@ export function AgentCanvas({ agentId, name, voice: agentVoice, pullRequests: fo
     onCancel: () => finishAsk(false),
     onClose: () => finishAsk(false),
     onContinue: askAction,
+    view: (
+      <AskDock
+        key={open.id}
+        question={open.question}
+        step={open.step}
+        who={hostedWorker ?? name}
+        where={hostedUrl ? `#${hostedUrl.split("/").pop()}` : undefined}
+        answer={answered ? open.summary : undefined}
+        resumeStep={open.resumeStep ?? open.step}
+        activity={waitRow}
+        avatar={avatar}
+        renderText={renderText}
+        canListen={canSpeak}
+        listenFirst={listenFirst}
+        onListen={listen}
+        onContinue={() => finishAsk(true)}
+      />
+    ),
   } : undefined;
 
   const toggleMuted = () => {
@@ -784,8 +783,6 @@ export function AgentCanvas({ agentId, name, voice: agentVoice, pullRequests: fo
       className={`agent-canvas ${dark ? "dark" : ""}`}
       style={{
         "--agent-canvas-fresh": JSON.stringify(freshShown.length ? ` · ${freshShown.length} new` : ""),
-        "--agent-canvas-ask-hint": JSON.stringify(listening ? "to hear the answer" : "to continue"),
-        "--agent-canvas-ask-action": JSON.stringify(listening ? "Listen" : "Continue"),
       } as React.CSSProperties}
       // Enter does what Space does on an answer.
       onKeyDown={(event) => {
@@ -796,23 +793,6 @@ export function AgentCanvas({ agentId, name, voice: agentVoice, pullRequests: fo
     >
       {tones && <style>{tones}</style>}
       {canvasNamed.current.size > 0 && <style>{`${[...canvasNamed.current.keys()].map((name) => `.agent-canvas .sketch-ref[data-ref="${name}"]`).join(", ")} { cursor: pointer; }`}</style>}
-      {/* The question and its answer, written as the chat writes them; while
-          it is answered, the chat's working row under the question. */}
-      {waitSlot && open && createPortal(
-        <div className="agent-canvas-thread" ref={keepWheel}>
-          <AskBubble key={open.id} text={open.question} render={renderText} />
-          {answered && open.summary ? (
-            <div className="agent-canvas-answer chat-markdown">{renderText(open.summary)}</div>
-          ) : (
-            <div className="convo-working agent-canvas-working">
-              <span className="convo-working-dot" />
-              <span className="convo-working-label">{waitRow.label}</span>
-              {"tool" in waitRow && waitRow.tool && <span className="convo-working-tool">{waitRow.tool}</span>}
-            </div>
-          )}
-        </div>,
-        waitSlot,
-      )}
       {freshMarks && <style>{`${freshMarks} { box-shadow: inset 0 0 0 1.5px var(--board-accent); background-color: color-mix(in srgb, var(--board-accent) 30%, transparent); }`}</style>}
       <SketchBoard
         key={agentId}
@@ -923,6 +903,62 @@ export function AgentCanvas({ agentId, name, voice: agentVoice, pullRequests: fo
       {error && <p className="agent-canvas-error" title="The board could not merge the newest drawing">{error}</p>}
       {/* The engine's own status: a muted narration (as during an ask) stands in as unsupported. */}
       {!muted && voice().status.state === "unsupported" && <p className="agent-canvas-note">No voice: {voice().status.reason ?? "it could not start here."} The walkthrough plays with captions.</p>}
+    </div>
+  );
+}
+
+// The ask, in the walkthrough's dock: where you asked and what, then the
+// agent at work on it (its avatar, what it does now), then its answer, said
+// in its voice, with Continue taking you back into the walkthrough where the
+// answer says. One layout from asking to answered, so nothing jumps.
+function AskDock({ question, step, who, where, answer, resumeStep, activity, avatar, renderText, canListen, listenFirst, onListen, onContinue }: {
+  question: string;
+  step?: number;
+  who: string;
+  where?: string;
+  answer?: string;
+  resumeStep?: number;
+  activity: { label: string; tool?: string };
+  avatar(working: boolean): React.ReactNode;
+  renderText(text: string): React.ReactNode;
+  canListen: boolean;
+  listenFirst: boolean;
+  onListen(): void;
+  onContinue(): void;
+}) {
+  const place = [step ? `step ${step}` : "", where ?? ""].filter(Boolean).join(" of ");
+  return (
+    <div className="ask-dock" ref={keepWheel}>
+      <p className="ask-dock-eyebrow">
+        {answer ? <><strong>{who}</strong> answered</> : <>You asked{place ? <> about <strong>{place}</strong></> : ""}</>}
+      </p>
+      <div className="ask-dock-question">{renderText(question)}</div>
+      {answer ? (
+        <div className="ask-dock-answer">
+          <span className="ask-dock-avatar">{avatar(false)}</span>
+          <div className="ask-dock-answer-text">{renderText(answer)}</div>
+        </div>
+      ) : (
+        <div className="ask-dock-working">
+          <span className="ask-dock-avatar">{avatar(true)}</span>
+          <span className="ask-dock-working-label">{activity.label}</span>
+          {activity.tool && <span className="ask-dock-working-tool">{activity.tool}</span>}
+        </div>
+      )}
+      <div className="ask-dock-foot">
+        <span className="ask-dock-hint"><kbd>Esc</kbd> back to the walkthrough</span>
+        {answer && canListen && (
+          <button type="button" className="ask-dock-listen" onClick={onListen}>
+            <Volume2 size={15} />{listenFirst ? "Listen" : "Listen again"}{listenFirst && <kbd>Space</kbd>}
+          </button>
+        )}
+        {answer && (
+          <button type="button" className="ask-dock-continue" onClick={onContinue}>
+            Continue{resumeStep ? ` from step ${resumeStep}` : ""}
+            {!listenFirst && <kbd><CornerDownLeft size={11} /></kbd>}
+          </button>
+        )}
+      </div>
     </div>
   );
 }

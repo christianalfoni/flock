@@ -10,9 +10,9 @@ const FAILED = new Set(["FAILURE", "ERROR", "CANCELLED", "TIMED_OUT", "ACTION_RE
 const RUNNING = new Set(["IN_PROGRESS", "QUEUED", "PENDING", "WAITING", "REQUESTED", "EXPECTED"]);
 
 // CI: failing when any check failed (whatever else runs), running while any
-// runs, passing when all finished otherwise; unknown with no checks.
+// runs, passing when all finished otherwise; none when it has no checks.
 export function ciOf(checks: Check[] | undefined): PullRequestCiState {
-  if (!checks?.length) return "unknown";
+  if (!checks?.length) return "none";
   if (checks.some((check) => FAILED.has((check.conclusion || check.state || "").toUpperCase()))) return "failing";
   if (checks.some((check) => !check.conclusion && RUNNING.has((check.status || check.state || "").toUpperCase()))) return "pending";
   return "passing";

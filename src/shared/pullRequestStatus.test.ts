@@ -3,8 +3,8 @@ import assert from "node:assert/strict";
 import { ciOf, stateOf } from "./pullRequestStatus.ts";
 
 test("CI from a pull request's checks", () => {
-  assert.equal(ciOf(undefined), "unknown");
-  assert.equal(ciOf([]), "unknown");
+  assert.equal(ciOf(undefined), "none");
+  assert.equal(ciOf([]), "none");
   assert.equal(ciOf([{ status: "COMPLETED", conclusion: "SUCCESS" }, { status: "COMPLETED", conclusion: "SKIPPED" }]), "passing");
   assert.equal(ciOf([{ status: "IN_PROGRESS", conclusion: "" }, { status: "COMPLETED", conclusion: "SUCCESS" }]), "pending");
   // A failure is failing even while other checks still run.

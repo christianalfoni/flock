@@ -17,10 +17,16 @@ export type Settings = {
   // The CLI new agents use; the first one found when none was chosen.
   defaultCli?: CliId;
   permissions: { orchestrator: PermissionMode; worker: PermissionMode };
+  // The voice new agents get, chosen when you tried it (TTMI's voice ids).
+  voice?: string;
+  // The first-run guide is done: the CLIs found, the voice tried.
+  onboarded?: boolean;
 };
 
 export type PullRequestState = "open" | "draft" | "conflict" | "queued" | "merged" | "closed";
-export type PullRequestCiState = "pending" | "passing" | "failing" | "unknown";
+// none: the pull request has no checks at all (a repository without CI);
+// unknown: not looked at yet.
+export type PullRequestCiState = "pending" | "passing" | "failing" | "none" | "unknown";
 export type PullRequest = { url: string; number: number; title?: string; state?: PullRequestState; ciState?: PullRequestCiState };
 
 // An orchestrator: one long CLI session you talk to, in one repository.

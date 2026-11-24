@@ -114,6 +114,8 @@ export function pullStanding(pull: CanvasPullRequest | undefined, working = fals
   if (pull.state === "draft") return { label: "Draft", tone: "muted" };
   if (pull.ciState === "pending") return { label: "CI running", tone: "yellow" };
   if (pull.ciState === "passing") return { label: "Ready", tone: "green" };
+  // A repository without CI: nothing is checked, and nothing holds it back.
+  if (pull.ciState === "none") return { label: "Open", tone: "green" };
   return { label: "Open", tone: "muted" };
 }
 

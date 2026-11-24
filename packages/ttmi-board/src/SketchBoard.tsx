@@ -324,6 +324,10 @@ export function SketchBoard({ initial, initialSteps = [], initialGroups = [], in
     onCancel(): void;
     onClose(): void;
     onContinue(): void;
+    // The host's own view of the ask while it waits or is answered (Flock
+    // draws the question, its agent at work and the answer itself). The
+    // board keeps the panel, its place and its keys.
+    view?: ReactNode;
   };
 }) {
   const rootRef = useRef<HTMLDivElement>(null);
@@ -3380,7 +3384,8 @@ export function SketchBoard({ initial, initialSteps = [], initialGroups = [], in
       )}
       {ask && (
         <div className="sketch-chrome sketch-steps sketch-steps-ask" data-ask="true" {...(playing !== undefined ? { "data-playback": beat } : {})}>
-          <AskView phase={ask.phase} question={ask.question} copied={ask.copied} summary={ask.summary} fieldRef={askFieldRef} onQuestion={ask.onQuestion} onCopy={ask.onCopy} onCancel={ask.onCancel} onClose={ask.onClose} onContinue={ask.onContinue} />
+          {ask.view && ask.phase !== "compose" ? <div className="sketch-caption sketch-ask" data-testid="ask" data-ask-phase={ask.phase}>{ask.view}</div>
+            : <AskView phase={ask.phase} question={ask.question} copied={ask.copied} summary={ask.summary} fieldRef={askFieldRef} onQuestion={ask.onQuestion} onCopy={ask.onCopy} onCancel={ask.onCancel} onClose={ask.onClose} onContinue={ask.onContinue} />}
         </div>
       )}
       {!ask && ready && (

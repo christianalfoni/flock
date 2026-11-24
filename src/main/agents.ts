@@ -267,7 +267,7 @@ function addPull(worker: Worker, url: string): boolean {
   return true;
 }
 
-const standing = (pull: PullRequest) => `${pull.state ?? "state not known yet"}${pull.ciState && pull.ciState !== "unknown" ? `, CI ${pull.ciState}` : ""}`;
+const standing = (pull: PullRequest) => `${pull.state ?? "state not known yet"}${pull.ciState === "none" ? ", no CI" : pull.ciState && pull.ciState !== "unknown" ? `, CI ${pull.ciState}` : ""}`;
 
 async function refreshPull(worker: Worker, url: string) {
   const status = await pullRequestStatus(url);
