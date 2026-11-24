@@ -504,6 +504,17 @@ function Conversation({ id, agent, worker, state, view, onView, onBack, panel }:
               placeholder={placeholder}
               onChange={(event) => setDraft(event.target.value)}
               onKeyDown={(event) => {
+                // ↑ on the first line: out of the message box, back to the
+                // walkthrough's keys (Space plays, ← → move, Esc leaves an ask).
+                if (event.key === "ArrowUp" && showCanvas && !event.shiftKey && !event.metaKey && !event.altKey) {
+                  const field = event.currentTarget;
+                  if (!field.value.slice(0, field.selectionStart).includes("\n")) {
+                    event.preventDefault();
+                    field.blur();
+                    document.querySelector<HTMLElement>(".agent-canvas-slot .sketch")?.focus({ preventScroll: true });
+                    return;
+                  }
+                }
                 if (event.key !== "Enter" || event.shiftKey || event.nativeEvent.isComposing) return;
                 // Yours to send, and nobody else's (the canvas plays on Enter);
                 // a held Enter repeats, and only its first press sends.

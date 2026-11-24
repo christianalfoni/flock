@@ -13,10 +13,10 @@
 // own facts, so it is current without a redraw.
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { ArrowLeft, CornerDownLeft, Volume2, VolumeX } from "lucide-react";
+import { ArrowLeft, Square, Volume2, VolumeX } from "lucide-react";
 import { COLORS, firstStep, ON_COLORS, SketchBoard, type SketchApi } from "@ttmi/board";
 import { parseSketch, sketchTitle, stepParts, textMeasure, type Shape, type SketchGroup, type SketchStep } from "@ttmi/format";
-import { DEFAULT_VOICE, pausedClip, pausePlayback, resumePlayback, speakStep, stepLoads, stopPlayback, useNarration, voice, type Preparation } from "ttmi-voice";
+import { DEFAULT_VOICE, pausedClip, pausePlayback, resumePlayback, speakStep, stepLoads, stopPlayback, useNarration, useVoiceStatus, voice, type Preparation } from "ttmi-voice";
 import { asksToHear, grantVoice, guardVoice, revokeVoice, voiceAllowed } from "./voiceGate";
 import { setCanvasFocus } from "./canvasStep";
 import { newSteps, stepWords, withHeard } from "../shared/canvasHeard";
@@ -289,9 +289,15 @@ export function AgentCanvas({ agentId, name, voice: agentVoice, pullRequests: fo
   // The voice is made on this machine: its model comes once (44 MB), the
   // first time a canvas is open with the voice on.
   const voiceState = narration.status.state;
+  // The engine's own status, as it changes (the narration's stands in as
+  // unsupported while it is muted, as during an ask).
+  const engine = useVoiceStatus(!muted, voiceName);
   useEffect(() => {
     if (!muted && voiceState === "absent") voice().install();
-  }, [muted, voiceState]);
+    // Installed before (the onboarding, or another canvas): loaded now, so
+    // an answer can be played without waiting for a walkthrough to ask.
+    if (!muted && engine.state === "installed") voice().load();
+  }, [muted, voiceState, engine.state]);
   // Out of view: its voice stops, and its walkthrough waits on the step it
   // was on, for when you come back.
   const playingRef = useRef(playing);
@@ -413,6 +419,10 @@ export function AgentCanvas({ agentId, name, voice: agentVoice, pullRequests: fo
   // is gone (the board opened, it was stopped, a drawing came with no
   // walkthrough before), it is opened again, ready to play.
   const host = useRef<HTMLDivElement>(null);
+  // Whether the board shows its walkthrough panel now: while it does not
+  // (a zoom into a pull request's canvas, nothing drawn yet), a placeholder
+  // holds its place on the message box.
+  const [hasPanel, setHasPanel] = useState(false);
   useEffect(() => {
     const node = host.current;
     if (!node) return;
@@ -420,6 +430,7 @@ export function AgentCanvas({ agentId, name, voice: agentVoice, pullRequests: fo
     // moment: it is reopened only once it has been gone a while.
     let timer: ReturnType<typeof setTimeout> | undefined;
     const keep = () => {
+      setHasPanel(Boolean(node.querySelector(".sketch-steps")));
       if (timer) clearTimeout(timer);
       timer = setTimeout(() => {
         const board = api.current;
@@ -465,11 +476,10 @@ export function AgentCanvas({ agentId, name, voice: agentVoice, pullRequests: fo
   // A pull request's drawing is laid out from its text: there is nothing to
   // wait for.
   const answered = open?.status === "answered" && (hostedUrl ? true : (open.version ?? 0) <= appliedShown);
-  // Nothing is said by itself: the first Space (or Enter, or the button)
-  // reads the summary aloud, the next goes on with the walkthrough.
-  const [heard, setHeard] = useState<string>();
+  // Nothing is said by itself: Space (or Enter, or the button) reads the
+  // answer aloud; Esc goes back to the walkthrough, paused.
   const stopSummary = useRef<() => void>(undefined);
-  const canSpeak = !muted && voice().status.state === "ready";
+  const canSpeak = !muted && engine.state === "ready";
   const finishAsk = (resume: boolean) => {
     if (!open) return;
     stopSummary.current?.();
@@ -478,10 +488,17 @@ export function AgentCanvas({ agentId, name, voice: agentVoice, pullRequests: fo
     if (hostedUrl) setPullDrawings((all) => all[hostedUrl] ? { ...all, [hostedUrl]: { ...all[hostedUrl]!, asks: done(all[hostedUrl]!.asks ?? []) } } : all);
     else setAsks(done);
     void window.dispatch.closeCanvasAsk(hostedUrl ?? agentId, open.id);
-    // Another ask still open shows next; the walkthrough goes on only after
-    // the last of them, from the step its answer names.
+    setAnswerSounding(false);
+    // Another ask still open shows next. After the last of them the
+    // walkthrough is back, paused on the step the answer names (or the one
+    // asked on): nothing plays until you press Space. The voice closes
+    // first, so opening the step does not sound it (voiceGate.ts).
     const more = shownAsks.some((item) => item.id !== open.id && item.status !== "done");
-    if (resume && !more) api.current?.playFrom(open.resumeStep ?? open.step ?? 1);
+    const at = open.resumeStep ?? open.step;
+    if (resume && !more && at) {
+      revokeVoice();
+      api.current?.openAt(at);
+    }
   };
   // Esc leaves the ask, back to the walkthrough, wherever the focus is (the
   // board takes it only when it has the focus, and you are often in the
@@ -495,7 +512,7 @@ export function AgentCanvas({ agentId, name, voice: agentVoice, pullRequests: fo
       if (event.key !== "Escape" || event.defaultPrevented) return;
       if (document.querySelector("[role='dialog'][data-state='open'], [role='menu'][data-state='open'], [role='listbox'][data-state='open']")) return;
       event.preventDefault();
-      finishRef.current(false);
+      finishRef.current(true);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -558,26 +575,28 @@ export function AgentCanvas({ agentId, name, voice: agentVoice, pullRequests: fo
     else setAsks(done);
     for (const id of ids) void window.dispatch.closeCanvasAsk(hostedUrl ?? agentId, id);
   }, [shownAsks]);
-  // Reads the answer aloud, in the agent's voice.
-  const listen = () => {
-    if (!open?.summary) return;
-    stopSummary.current?.();
-    setHeard(open.id);
+  // The answer, said in the agent's voice: Space (or Listen) plays it, and
+  // stops it while it sounds. Nothing else happens: Esc goes back.
+  const [answerSounding, setAnswerSounding] = useState(false);
+  const toggleAnswer = () => {
+    if (!open?.summary || !answered) return;
+    if (answerSounding) {
+      stopSummary.current?.();
+      stopSummary.current = undefined;
+      setAnswerSounding(false);
+      return;
+    }
+    if (!canSpeak) return;
+    grantVoice();
     pausePlayback();
     const text = open.summary;
+    const done = () => { stopSummary.current?.(); stopSummary.current = undefined; setAnswerSounding(false); };
+    setAnswerSounding(true);
     stopSummary.current = speakStep(voice().clip({ segments: [{ text }] }, voiceName, true, agentId), text, {
       speaking() {}, needsGesture() {}, pointing() {}, heard() {},
-      ended() { stopSummary.current?.(); },
-      failed() { stopSummary.current?.(); },
+      ended: done,
+      failed: done,
     });
-  };
-  // Space or Enter on an answer: hear it first (when there is a voice),
-  // then go on with the walkthrough.
-  const listenFirst = Boolean(answered && open && heard !== open.id && canSpeak);
-  const askAction = () => {
-    if (!open || !answered || !open.summary) return;
-    if (listenFirst) listen();
-    else finishAsk(true);
   };
   const askPanel = open ? {
     phase: answered ? "summary" as const : "waiting" as const,
@@ -586,9 +605,9 @@ export function AgentCanvas({ agentId, name, voice: agentVoice, pullRequests: fo
     ...(answered && open.summary ? { summary: open.summary } : {}),
     onQuestion: () => undefined,
     onCopy: () => undefined,
-    onCancel: () => finishAsk(false),
-    onClose: () => finishAsk(false),
-    onContinue: askAction,
+    onCancel: () => finishAsk(true),
+    onClose: () => finishAsk(true),
+    onContinue: toggleAnswer,
     view: (
       <AskDock
         key={open.id}
@@ -602,9 +621,8 @@ export function AgentCanvas({ agentId, name, voice: agentVoice, pullRequests: fo
         avatar={avatar}
         renderText={renderText}
         canListen={canSpeak}
-        listenFirst={listenFirst}
-        onListen={listen}
-        onContinue={() => finishAsk(true)}
+        sounding={answerSounding}
+        onListen={toggleAnswer}
       />
     ),
   } : undefined;
@@ -788,7 +806,7 @@ export function AgentCanvas({ agentId, name, voice: agentVoice, pullRequests: fo
       onKeyDown={(event) => {
         if (event.key !== "Enter" || !answered || (event.target as Element).closest("textarea, input")) return;
         event.preventDefault();
-        askAction();
+        toggleAnswer();
       }}
     >
       {tones && <style>{tones}</style>}
@@ -899,7 +917,17 @@ export function AgentCanvas({ agentId, name, voice: agentVoice, pullRequests: fo
         }
       />
       <CanvasSkeleton leaving={drawnIn} />
-      {empty && <p className="agent-canvas-empty">{name} has not drawn anything yet. What it wants you to see shows here.</p>}
+      {!hasPanel && (
+        <div className="agent-canvas-dock-placeholder" aria-hidden={!empty}>
+          {empty && !hosted ? <p>{name} has not drawn anything yet. What it wants you to see shows here.</p> : (
+            <>
+              <span className="agent-canvas-skeleton-text" />
+              <span className="agent-canvas-skeleton-text agent-canvas-skeleton-text-short" />
+              <span className="agent-canvas-skeleton-bar" />
+            </>
+          )}
+        </div>
+      )}
       {error && <p className="agent-canvas-error" title="The board could not merge the newest drawing">{error}</p>}
       {/* The engine's own status: a muted narration (as during an ask) stands in as unsupported. */}
       {!muted && voice().status.state === "unsupported" && <p className="agent-canvas-note">No voice: {voice().status.reason ?? "it could not start here."} The walkthrough plays with captions.</p>}
@@ -911,7 +939,7 @@ export function AgentCanvas({ agentId, name, voice: agentVoice, pullRequests: fo
 // agent at work on it (its avatar, what it does now), then its answer, said
 // in its voice, with Continue taking you back into the walkthrough where the
 // answer says. One layout from asking to answered, so nothing jumps.
-function AskDock({ question, step, who, where, answer, resumeStep, activity, avatar, renderText, canListen, listenFirst, onListen, onContinue }: {
+function AskDock({ question, step, who, where, answer, resumeStep, activity, avatar, renderText, canListen, sounding, onListen }: {
   question: string;
   step?: number;
   who: string;
@@ -922,9 +950,8 @@ function AskDock({ question, step, who, where, answer, resumeStep, activity, ava
   avatar(working: boolean): React.ReactNode;
   renderText(text: string): React.ReactNode;
   canListen: boolean;
-  listenFirst: boolean;
+  sounding: boolean;
   onListen(): void;
-  onContinue(): void;
 }) {
   const place = [step ? `step ${step}` : "", where ?? ""].filter(Boolean).join(" of ");
   return (
@@ -935,7 +962,7 @@ function AskDock({ question, step, who, where, answer, resumeStep, activity, ava
       <div className="ask-dock-question">{renderText(question)}</div>
       {answer ? (
         <div className="ask-dock-answer">
-          <span className="ask-dock-avatar">{avatar(false)}</span>
+          <span className="ask-dock-avatar">{avatar(sounding)}</span>
           <div className="ask-dock-answer-text">{renderText(answer)}</div>
         </div>
       ) : (
@@ -946,18 +973,12 @@ function AskDock({ question, step, who, where, answer, resumeStep, activity, ava
         </div>
       )}
       <div className="ask-dock-foot">
-        <span className="ask-dock-hint"><kbd>Esc</kbd> back to the walkthrough</span>
         {answer && canListen && (
-          <button type="button" className="ask-dock-listen" onClick={onListen}>
-            <Volume2 size={15} />{listenFirst ? "Listen" : "Listen again"}{listenFirst && <kbd>Space</kbd>}
+          <button type="button" className={`ask-dock-listen ${sounding ? "ask-dock-listen-on" : ""}`} onClick={onListen}>
+            {sounding ? <Square size={13} /> : <Volume2 size={15} />}{sounding ? "Stop" : "Play the answer"}<kbd>Space</kbd>
           </button>
         )}
-        {answer && (
-          <button type="button" className="ask-dock-continue" onClick={onContinue}>
-            Continue{resumeStep ? ` from step ${resumeStep}` : ""}
-            {!listenFirst && <kbd><CornerDownLeft size={11} /></kbd>}
-          </button>
-        )}
+        <span className="ask-dock-hint"><kbd>Esc</kbd> back to the walkthrough{resumeStep ? `, at step ${resumeStep}` : ""}</span>
       </div>
     </div>
   );
