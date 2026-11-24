@@ -13,8 +13,8 @@
 // own facts, so it is current without a redraw.
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { ArrowLeft, Square, Volume2, VolumeX } from "lucide-react";
-import { COLORS, firstStep, ON_COLORS, SketchBoard, type SketchApi } from "@ttmi/board";
+import { ArrowLeft, Play, Sparkles, Square, Volume2, VolumeX } from "lucide-react";
+import { COLORS, firstStep, ON_COLORS, SketchBoard, stepTitle, type SketchApi } from "@ttmi/board";
 import { parseSketch, sketchTitle, stepParts, textMeasure, type Shape, type SketchGroup, type SketchStep } from "@ttmi/format";
 import { DEFAULT_VOICE, pausedClip, pausePlayback, resumePlayback, speakStep, stepLoads, stopPlayback, useNarration, useVoiceStatus, voice, type Preparation } from "ttmi-voice";
 import { asksToHear, grantVoice, guardVoice, revokeVoice, voiceAllowed } from "./voiceGate";
@@ -68,7 +68,12 @@ type CanvasProps = { agentId: string; name: string; voice?: string; pullRequests
   // its answer. Given by the page, which owns the chat's markdown.
   renderText?(text: string): React.ReactNode;
   // The agent's avatar, at work or not, for the ask's dock.
-  avatar?(working: boolean): React.ReactNode };
+  avatar?(working: boolean): React.ReactNode;
+  // Who is at work now (the agent and its workers), each with its latest
+  // line: the canvas's work rows.
+  live?: LiveRow[] };
+
+export type LiveRow = { id: string; name: string; avatar: React.ReactNode; line: string; detail?: string };
 
 // The canvases you have looked at stay drawn, each in its own element, so
 // coming back to an agent shows its canvas at once, as you left it. The slot
@@ -124,7 +129,7 @@ export function CanvasSlot(props: CanvasProps) {
   }, [agentId]);
   // New names, voice or pull request states reach the canvas shown.
   const pulls = JSON.stringify(props.pullRequests ?? []);
-  useEffect(() => draw(true), [props.name, props.voice, pulls, JSON.stringify(props.activity), props.working]);
+  useEffect(() => draw(true), [props.name, props.voice, pulls, JSON.stringify(props.activity), props.working, JSON.stringify((props.live ?? []).map((row) => [row.id, row.line, row.detail]))]);
   // Under the kept canvas, the skeleton: until the canvas has drawn itself
   // (its element is filled a frame after it is put here), the slot is never
   // empty.
@@ -149,7 +154,7 @@ function useKnownPulls(agentId: string, current: CanvasPullRequest[]): CanvasPul
   }, [key, JSON.stringify(current)]);
 }
 
-export function AgentCanvas({ agentId, name, voice: agentVoice, pullRequests: followed = [], activity, working = false, onOpenPull, renderText = (text) => <p>{text}</p>, avatar = () => null, active = true }: CanvasProps & { active?: boolean }) {
+export function AgentCanvas({ agentId, name, voice: agentVoice, pullRequests: followed = [], activity, working = false, onOpenPull, renderText = (text) => <p>{text}</p>, avatar = () => null, live = [], active = true }: CanvasProps & { active?: boolean }) {
   const pullRequests = useKnownPulls(agentId, followed);
   const [loaded, setLoaded] = useState<Canvas>();
   const [title, setTitle] = useState<string>();
@@ -164,6 +169,10 @@ export function AgentCanvas({ agentId, name, voice: agentVoice, pullRequests: fo
   // The board as last saved, for marking a drawing done that changed nothing.
   const saved = useRef<CanvasBoard>(undefined);
   const merging = useRef(false);
+  // The shapes before a merge, the names it changed, and when it last came.
+  const beforeMerge = useRef<Shape[]>(undefined);
+  const [changed, setChanged] = useState<string[]>([]);
+  const [updatedAt, setUpdatedAt] = useState<number>();
   const again = useRef(false);
   // Its asks (what you wrote while it was shown), and the newest drawing the
   // board has, as state: an answer is said once its drawing is in.
@@ -261,6 +270,12 @@ export function AgentCanvas({ agentId, name, voice: agentVoice, pullRequests: fo
   }), []);
   const [voiceKick, setVoiceKick] = useState(0);
   const said = focused ?? drawn;
+  // A step (from 1, as the step bar counts) as the board names it.
+  const titleOf = (at: number | undefined) => {
+    const first = firstStep(said.steps);
+    const index = at === undefined ? -1 : at - 1 + first;
+    return index >= first && index < said.steps.length ? stepTitle(said.steps, index, first) : undefined;
+  };
   const spoken = useMemo(() => ({ parts: stepParts(said.shapes, said.steps, said.groups), loads: stepLoads(said.shapes, said.steps, said.groups) }), [said]);
   // While an ask is open the walkthrough's own voice is still: an answer
   // that changes the step's words does not start it.
@@ -341,6 +356,13 @@ export function AgentCanvas({ agentId, name, voice: agentVoice, pullRequests: fo
 
   const save = (board: CanvasBoard) => {
     if (hostedRef.current) return;
+    // The first save after a merge: what that drawing changed, ringed on
+    // the board until you play the walkthrough.
+    if (beforeMerge.current) {
+      const names = changedShapes(beforeMerge.current, board.shapes);
+      beforeMerge.current = undefined;
+      if (names.length) setChanged(names);
+    }
     saved.current = board;
     setDrawn(board);
     void window.dispatch.saveCanvas(agentId, board, canvasesToLinks(api.current?.toSketch() ?? "", ids.current, added.current), applied.current);
@@ -375,6 +397,8 @@ export function AgentCanvas({ agentId, name, voice: agentVoice, pullRequests: fo
         // A drawing merging is not you asking to hear it; one that comes
         // while you are playing the walkthrough leaves it playing.
         if (host.current?.querySelector(".sketch-steps:not(.sketch-steps-ask)")?.getAttribute("data-playback") !== "playing") revokeVoice();
+        // What the board had before: compared with what it has after.
+        beforeMerge.current ??= saved.current?.shapes ?? [];
         for (const item of todo) {
           const result = await board.import(linksToCanvases(item.source, ids.current, numbersRef.current, added.current), false);
           setError(result.error);
@@ -391,6 +415,7 @@ export function AgentCanvas({ agentId, name, voice: agentVoice, pullRequests: fo
         setEmpty(false);
         await board.settled();
         setAppliedShown(applied.current);
+        setUpdatedAt(Date.now());
         // The board saves the merge itself; a drawing that changed nothing
         // gives no save, so this one marks it done.
         setTimeout(() => save(saved.current ?? { shapes: [], steps: [], groups: [], terms: [] }), 900);
@@ -462,7 +487,8 @@ export function AgentCanvas({ agentId, name, voice: agentVoice, pullRequests: fo
     // While an ask is on show the walkthrough stands still: a follow-up is
     // about the step that ask was on.
     const at = step ?? shown?.step;
-    setCanvasFocus(agentId, { ...(at ? { step: at } : {}), ...(hostedUrl && hostedWorker ? { pull: { url: hostedUrl, worker: hostedWorker } } : {}), ...(phase === "waiting" || phase === "answered" ? { ask: phase } : {}) });
+    const title = titleOf(at);
+    setCanvasFocus(agentId, { ...(at ? { step: at, ...(title ? { title } : {}) } : {}), ...(hostedUrl && hostedWorker ? { pull: { url: hostedUrl, worker: hostedWorker } } : {}), ...(phase === "waiting" || phase === "answered" ? { ask: phase } : {}) });
   }, [agentId, playing, said, hostedUrl, hostedWorker, shownAsks]);
 
   // A pull request's canvas drawn again while you are inside it: the board
@@ -613,6 +639,8 @@ export function AgentCanvas({ agentId, name, voice: agentVoice, pullRequests: fo
         key={open.id}
         question={open.question}
         step={open.step}
+        stepName={titleOf(open.step)}
+        resumeName={titleOf(open.resumeStep ?? open.step)}
         who={hostedWorker ?? name}
         where={hostedUrl ? `#${hostedUrl.split("/").pop()}` : undefined}
         answer={answered ? open.summary : undefined}
@@ -659,6 +687,20 @@ export function AgentCanvas({ agentId, name, voice: agentVoice, pullRequests: fo
   const freshMarks = freshShown.map((index) => `.agent-canvas .sketch-step-progress > span:nth-child(${index - first + 1})`).join(", ");
   const freshRef = useRef(freshShown);
   freshRef.current = freshShown;
+  // Playing the walkthrough is looking at what changed: the rings go.
+  // Playing: the walkthrough moving (a step opened paused, as a drawing's
+  // play_from opens it, is not playing yet).
+  const isPlaying = playing !== undefined && !paused;
+  useEffect(() => {
+    if (isPlaying && changed.length) setChanged([]);
+  }, [isPlaying]);
+  const changedMarks = hosted ? "" : changed.map((item) => `.agent-canvas .sketch-rect[data-name=${JSON.stringify(item)}], .agent-canvas [data-shape-id][data-name=${JSON.stringify(item)}]`).join(", ");
+  const playNew = () => {
+    const start = freshRef.current[0];
+    if (start === undefined) return;
+    grantVoice();
+    api.current?.playFrom(start - firstStep(saidRef.current.steps) + 1);
+  };
   useEffect(() => {
     const node = host.current;
     if (!node) return;
@@ -811,6 +853,12 @@ export function AgentCanvas({ agentId, name, voice: agentVoice, pullRequests: fo
     >
       {tones && <style>{tones}</style>}
       {canvasNamed.current.size > 0 && <style>{`${[...canvasNamed.current.keys()].map((name) => `.agent-canvas .sketch-ref[data-ref="${name}"]`).join(", ")} { cursor: pointer; }`}</style>}
+      {changedMarks && <style>{`${changedMarks} { animation: agent-canvas-changed 1.6s ease-in-out 2, agent-canvas-changed-rest 0s 3.2s forwards; }`}</style>}
+      <NowIsland
+        live={live}
+        update={!hosted && !open && !isPlaying && freshShown.length > 0 ? { who: name, steps: freshShown.length, at: updatedAt } : undefined}
+        onPlayNew={playNew}
+      />
       {freshMarks && <style>{`${freshMarks} { box-shadow: inset 0 0 0 1.5px var(--board-accent); background-color: color-mix(in srgb, var(--board-accent) 30%, transparent); }`}</style>}
       <SketchBoard
         key={agentId}
@@ -939,9 +987,11 @@ export function AgentCanvas({ agentId, name, voice: agentVoice, pullRequests: fo
 // agent at work on it (its avatar, what it does now), then its answer, said
 // in its voice, with Continue taking you back into the walkthrough where the
 // answer says. One layout from asking to answered, so nothing jumps.
-function AskDock({ question, step, who, where, answer, resumeStep, activity, avatar, renderText, canListen, sounding, onListen }: {
+function AskDock({ question, step, stepName, resumeName, who, where, answer, resumeStep, activity, avatar, renderText, canListen, sounding, onListen }: {
   question: string;
   step?: number;
+  stepName?: string;
+  resumeName?: string;
   who: string;
   where?: string;
   answer?: string;
@@ -953,7 +1003,7 @@ function AskDock({ question, step, who, where, answer, resumeStep, activity, ava
   sounding: boolean;
   onListen(): void;
 }) {
-  const place = [step ? `step ${step}` : "", where ?? ""].filter(Boolean).join(" of ");
+  const place = [stepName ? stepName.replace(/^Step/, "step").replace(/^Overview$/, "the overview").replace(/^Summary$/, "the summary") : step ? `step ${step}` : "", where ?? ""].filter(Boolean).join(" of ");
   return (
     <div className="ask-dock" ref={keepWheel}>
       <p className="ask-dock-eyebrow">
@@ -978,8 +1028,44 @@ function AskDock({ question, step, who, where, answer, resumeStep, activity, ava
             {sounding ? <Square size={13} /> : <Volume2 size={15} />}{sounding ? "Stop" : "Play the answer"}<kbd>Space</kbd>
           </button>
         )}
-        <span className="ask-dock-hint"><kbd>Esc</kbd> back to the walkthrough{resumeStep ? `, at step ${resumeStep}` : ""}</span>
+        <span className="ask-dock-hint"><kbd>Esc</kbd> back to the walkthrough{resumeName ? `, at ${resumeName.replace(/^Step/, "step").replace(/^Overview$/, "the overview").replace(/^Summary$/, "the summary")}` : resumeStep ? `, at step ${resumeStep}` : ""}</span>
       </div>
+    </div>
+  );
+}
+
+// What a drawing changed: shapes that are new, or whose words, colour or
+// tag changed (by name; where they sit is the reader's, not news).
+function changedShapes(before: Shape[], after: Shape[]): string[] {
+  const words = (shape: Shape) => JSON.stringify(Object.entries(shape).filter(([key, value]) => key !== "id" && (typeof value === "string" || typeof value === "boolean")).sort());
+  const named = (shape: Shape) => (shape.kind !== "arrow" && "name" in shape && typeof shape.name === "string" ? shape.name : undefined);
+  const was = new Map(before.flatMap((shape) => { const name = named(shape); return name ? [[name, words(shape)] as const] : []; }));
+  return after.flatMap((shape) => { const name = named(shape); return name && was.get(name) !== words(shape) ? [name] : []; });
+}
+
+// The canvas's "now": who is at work (a row each: avatar, name, latest
+// line), and, when a drawing brought steps you have not heard, the update
+// with a way to play just what is new. At the top of the canvas, under the
+// views' switch; the dock at the bottom stays yours.
+function NowIsland({ live, update, onPlayNew }: { live: LiveRow[]; update?: { who: string; steps: number; at?: number }; onPlayNew(): void }) {
+  if (!live.length && !update) return null;
+  return (
+    <div className="now-island" aria-live="polite">
+      {update && (
+        <div className="now-row now-update">
+          <Sparkles size={15} className="now-update-mark" />
+          <span className="now-update-text"><strong>{update.who}</strong> {update.at ? "updated the canvas" : "has news for you"} · {update.steps} new {update.steps === 1 ? "step" : "steps"}</span>
+          <button type="button" className="now-update-play" onClick={onPlayNew}><Play size={12} />Play what's new<kbd>Space</kbd></button>
+        </div>
+      )}
+      {live.map((row) => (
+        <div key={row.id} className="now-row now-work">
+          <span className="now-avatar">{row.avatar}</span>
+          <span className="now-name">{row.name}</span>
+          <span className="now-line">{row.line}</span>
+          {row.detail && <span className="now-detail">{row.detail}</span>}
+        </div>
+      ))}
     </div>
   );
 }

@@ -41,7 +41,7 @@ function sameCamera(a: Camera, b: Camera) {
 // Where the walkthrough is (docs/board.md, Walkthrough): the overview and
 // summary by name, a hop by its place among the hops, a step written with
 // "step:" by its place among the steps.
-function stepTitle(steps: SketchStep[], at: number, first: number) {
+export function stepTitle(steps: SketchStep[], at: number, first: number) {
   const step = steps[at]!;
   if (step.kind === "overview") return "Overview";
   if (step.kind === "summary") return "Summary";

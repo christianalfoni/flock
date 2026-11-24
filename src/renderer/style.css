@@ -620,3 +620,30 @@ body { overflow: hidden; color: var(--fg); }
 .agent-canvas-dock-placeholder { position: absolute; z-index: 3; bottom: 0; left: 50%; display: flex; width: min(820px, calc(100% - 3rem)); box-sizing: border-box; flex-direction: column; justify-content: center; gap: 0.6rem; min-height: 92px; transform: translateX(-50%); border: 1px solid var(--border); border-bottom: 0; border-radius: 1.1rem 1.1rem 0 0; background: var(--surface); padding: 1.1rem 1.2rem 0.9rem; pointer-events: none; }
 .agent-canvas-dock-placeholder p { margin: 0; color: var(--fg-3); font-size: 15px; line-height: 1.5; }
 .convo-canvas-mode.convo-busy .agent-canvas-dock-placeholder { border-color: var(--working); }
+
+/* --- The canvas's "now" (canvas.tsx, NowIsland): who is at work, and
+   what a drawing changed. Under the views' switch, over the board. --- */
+.now-island { position: absolute; z-index: 4; top: 3.6rem; left: 50%; display: flex; max-width: min(640px, calc(100% - 3rem)); flex-direction: column; align-items: center; gap: 6px; transform: translateX(-50%); pointer-events: none; }
+.now-row { max-width: 100%; }
+.now-row { display: flex; min-width: 0; align-items: center; gap: 9px; border: 1px solid var(--border); border-radius: 999px; background: color-mix(in srgb, var(--surface) 92%, transparent); padding: 5px 14px 5px 6px; box-shadow: var(--shadow-soft); backdrop-filter: blur(8px); pointer-events: auto; animation: now-in 220ms ease-out; }
+@keyframes now-in { from { opacity: 0; transform: translateY(-4px); } }
+.now-avatar { display: grid; flex: none; place-items: center; width: 24px; }
+.now-name { flex: none; color: var(--fg); font-family: var(--font-display); font-size: 13px; font-weight: 750; }
+.now-line { min-width: 0; flex: 0 1 auto; overflow: hidden; color: var(--fg-1); font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
+.now-detail { min-width: 0; flex: 1; overflow: hidden; color: var(--fg-3); font-family: var(--font-mono); font-size: 11.5px; text-overflow: ellipsis; white-space: nowrap; }
+/* A work row's edge breathes in the working colour. */
+.now-work { border-color: color-mix(in srgb, var(--working) 45%, var(--border)); }
+/* The update: the accent, with a way to play just what is new. */
+.now-update { border-color: color-mix(in srgb, var(--primary) 55%, var(--border)); padding: 4px 4px 4px 14px; box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 14%, transparent), var(--shadow-soft); }
+.now-update-mark { flex: none; color: var(--primary); }
+.now-update-text { min-width: 0; flex: 1; overflow: hidden; color: var(--fg-1); font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
+.now-update-text strong { color: var(--fg); }
+.now-update-play { display: inline-flex; flex: none; align-items: center; gap: 6px; border: 0; border-radius: 999px; background: var(--primary); padding: 5px 7px 5px 12px; color: var(--primary-fg); font-size: 12.5px; font-weight: 700; box-shadow: 0 2px 0 var(--primary-ledge); }
+.now-update-play:hover { filter: brightness(1.06); }
+.now-update-play kbd { border: 1px solid currentColor; border-radius: 5px; padding: 0 4px; font-family: var(--font-body); font-size: 10px; opacity: 0.75; }
+
+/* Shapes a drawing just changed: a ring in the accent, twice, then a faint
+   one until the walkthrough plays. */
+@keyframes agent-canvas-changed { 0%, 100% { box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 70%, transparent); } 50% { box-shadow: 0 0 0 8px color-mix(in srgb, var(--primary) 0%, transparent), 0 0 0 2px var(--primary); } }
+@keyframes agent-canvas-changed-rest { to { box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 55%, transparent); } }
+@media (prefers-reduced-motion: reduce) { .now-row { animation: none; } }

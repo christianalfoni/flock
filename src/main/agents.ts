@@ -165,11 +165,11 @@ function ensureSession(id: string): CliSession {
       case "text":
         lastText = event.text;
         void append(id, { kind: "assistant", text: event.text });
-        setSession(id, { activity: { label: "Writing…" } });
+        setSession(id, { activity: { label: "Writing…" }, lastLine: firstLine(event.text), activeAt: Date.now() });
         break;
       case "tool":
         void append(id, { kind: "tool", name: event.name, ...(event.summary ? { summary: event.summary } : {}) });
-        setSession(id, { activity: { label: event.name, ...(event.summary ? { tool: event.summary } : {}) } });
+        setSession(id, { activity: { label: event.name, ...(event.summary ? { tool: event.summary } : {}) }, activeAt: Date.now() });
         break;
       case "tool-error":
         void append(id, { kind: "tool", name: event.name ?? "Tool", summary: event.message, error: true });
@@ -193,6 +193,12 @@ function ensureSession(id: string): CliSession {
   });
   sessions.set(id, { cli, id });
   return cli;
+}
+
+// What a session wrote, in a line: its first sentence-ish, without markdown.
+function firstLine(text: string): string {
+  const line = text.split("\n").map((part) => part.replace(/[#*_`>]/g, "").trim()).find(Boolean) ?? "";
+  return line.length > 160 ? `${line.slice(0, 157)}…` : line;
 }
 
 // Whether a session reported in its current turn.

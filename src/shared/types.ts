@@ -73,6 +73,10 @@ export type SessionState = {
   id: string; // the agent's or worker's id
   status: "starting" | "working" | "idle" | "stopped" | "error";
   activity?: { label: string; tool?: string };
+  // The first line of what it last wrote, for the canvas's work rows.
+  lastLine?: string;
+  // When it last did anything (a tool, a line).
+  activeAt?: number;
   error?: string;
 };
 

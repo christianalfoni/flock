@@ -6,14 +6,15 @@
 import { useSyncExternalStore } from "react";
 
 // ask: an ask on show, waiting for its answer or answered.
-export type CanvasFocus = { step?: number; pull?: { url: string; worker: string }; ask?: "waiting" | "answered" };
+// title: the step as the board names it (Overview, Step 2, Summary).
+export type CanvasFocus = { step?: number; title?: string; pull?: { url: string; worker: string }; ask?: "waiting" | "answered" };
 const focus = new Map<string, CanvasFocus>();
 const listeners = new Set<() => void>();
 const NONE: CanvasFocus = {};
 
 export function setCanvasFocus(agentId: string, where: CanvasFocus) {
   const was = focus.get(agentId);
-  if (was && was.step === where.step && was.ask === where.ask && was.pull?.url === where.pull?.url && was.pull?.worker === where.pull?.worker) return;
+  if (was && was.step === where.step && was.title === where.title && was.ask === where.ask && was.pull?.url === where.pull?.url && was.pull?.worker === where.pull?.worker) return;
   focus.set(agentId, where);
   for (const listener of listeners) listener();
 }

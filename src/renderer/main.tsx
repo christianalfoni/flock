@@ -28,6 +28,25 @@ const recall = (key: string) => { try { return localStorage.getItem(key) ?? unde
 const errorMessage = (cause: unknown) => (cause instanceof Error ? cause.message : String(cause)).replace(/^Error invoking remote method '[^']+': (Error: )?/, "");
 const working = (session?: SessionState) => session?.status === "working" || session?.status === "starting";
 
+// The tools, as what the session is doing.
+const TOOL_WORDS: Record<string, string> = {
+  Read: "Reading", Edit: "Editing", Write: "Writing a file", MultiEdit: "Editing", NotebookEdit: "Editing a notebook",
+  Bash: "Running", Shell: "Running", Grep: "Searching", Glob: "Looking for files", LS: "Looking around",
+  WebFetch: "Reading the web", WebSearch: "Searching the web", ToolSearch: "Getting its tools", TodoWrite: "Planning", Task: "Asking a helper",
+  draw: "Drawing the canvas", get_canvas: "Looking at the canvas", start_worker: "Starting a worker", message_worker: "Messaging a worker",
+  workers: "Checking on its workers", remove_worker: "Removing a worker", report: "Reporting", permission: "Asking you",
+};
+
+// A session's latest line while it works: the tool it runs and on what,
+// else the first line of what it last wrote, else that it is starting.
+function liveLine(session: SessionState | undefined, asking: boolean): { line: string; detail?: string } {
+  if (asking) return { line: "Waiting for your permission", ...(session?.activity?.tool ? { detail: session.activity.tool } : {}) };
+  if (session?.status === "starting") return { line: "Starting…" };
+  const label = session?.activity?.label;
+  if (label && label !== "Writing…" && label !== "Working…") return { line: TOOL_WORDS[label] ?? label, ...(session?.activity?.tool ? { detail: session.activity.tool } : {}) };
+  return { line: session?.lastLine || label || "Working…" };
+}
+
 function ChatMarkdown({ text }: { text: string }) {
   return (
     <div className="chat-markdown">
@@ -301,7 +320,7 @@ function WorkersPanel({ agent, state, selected, onSelect, onRemoved }: { agent: 
           return (
             <div key={worker.id} className={`sub-issue ${selected === worker.id ? "sub-issue-active" : ""}`} onClick={() => onSelect(worker.id)} title="Open its conversation">
               <p className="sub-issue-title sub-issue-heading">
-                <span className="sub-issue-session"><span className={`agent-mark agent-mark-${session.tone}`} title={session.label} /></span>
+                <span className="sub-issue-session"><AgentAvatar seed={worker.id} color={agentColor(agent)} size={22} working={session.tone === "working"} /></span>
                 <span className="source-badge source-badge-worker issue-badge">{worker.id}</span>
                 {worker.title}
               </p>
@@ -319,7 +338,9 @@ function WorkersPanel({ agent, state, selected, onSelect, onRemoved }: { agent: 
                   ))}
                 </div>
               )}
-              {worker.lastReport && <p className={`sub-issue-said ${session.said}`}>{worker.lastReport.text}</p>}
+              {session.tone === "working" ? (
+                <p className={`sub-issue-said ${session.said}`}>{(() => { const live = liveLine(state.sessions[worker.id], state.permissions.some((request) => request.session === worker.id)); return live.detail ? `${live.line} · ${live.detail}` : live.line; })()}</p>
+              ) : worker.lastReport && <p className={`sub-issue-said ${session.said}`}>{worker.lastReport.text}</p>}
               <button type="button" className="ghost sub-issue-remove" onClick={(event) => { event.stopPropagation(); void remove(worker); }}>Remove</button>
             </div>
           );
@@ -421,7 +442,7 @@ function Conversation({ id, agent, worker, state, view, onView, onBack, panel }:
   // On the canvas: where what you write goes (the step you are on, or a
   // pull request's canvas), and whether an ask is on show.
   const focus = useCanvasFocus(agent.id);
-  const target = showCanvas ? [focus.pull ? `#${focus.pull.url.split("/").pop()} · ${focus.pull.worker}` : "", focus.step ? `Step ${focus.step}` : ""].filter(Boolean).join(" · ") : "";
+  const target = showCanvas ? [focus.pull ? `#${focus.pull.url.split("/").pop()} · ${focus.pull.worker}` : "", focus.title ?? (focus.step ? `Step ${focus.step}` : "")].filter(Boolean).join(" · ") : "";
   const placeholder = !showCanvas ? (worker ? `Message ${worker.id}…` : `Message ${agent.name}…`)
     : focus.ask === "answered" ? "Ask a follow-up…"
       : focus.ask === "waiting" ? "Add to your question…"
@@ -489,6 +510,15 @@ function Conversation({ id, agent, worker, state, view, onView, onBack, panel }:
             onOpenPull={(url) => void window.dispatch.openExternal(url)}
             renderText={(text) => <ChatMarkdown text={text} />}
             avatar={(atWork) => <AgentAvatar seed={agent.id} color={agentColor(agent)} size={28} working={atWork} />}
+            live={[
+              ...(busy ? [{ id: agent.id, name: agent.name, avatar: <AgentAvatar seed={agent.id} color={agentColor(agent)} size={22} working />, ...liveLine(session, state.permissions.some((request) => request.session === agent.id)) }] : []),
+              ...workers.filter((item) => working(state.sessions[item.id]) || state.permissions.some((request) => request.session === item.id)).map((item) => ({
+                id: item.id,
+                name: item.id,
+                avatar: <AgentAvatar seed={item.id} color={agentColor(agent)} size={22} working />,
+                ...liveLine(state.sessions[item.id], state.permissions.some((request) => request.session === item.id)),
+              })),
+            ]}
           />
         </React.Suspense>
       ) : (
