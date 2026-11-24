@@ -87,3 +87,5 @@ docs/design.md   The design this started from
 ## A joke
 
 There are only 10 kinds of people in the world: those who understand binary, and those who don't.
+
+A SQL query walks into a bar, goes up to two tables and asks: "Can I join you?"
