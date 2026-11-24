@@ -113,8 +113,7 @@ function App() {
   const showWorkers = Boolean(agent && !settings && (!onCanvas || workersPanel));
   return (
     <main className="h-screen overflow-hidden bg-[var(--bg)] text-[var(--fg)]" style={{ "--sidebar": `${SIDEBAR_WIDTH}px`, "--page-right": `${showWorkers ? RIGHT_WIDTH : 0}px` } as React.CSSProperties}>
-      {/* The left edge leaves room for the window's buttons. */}
-      <header className="drag-region relative flex h-[60px] items-center px-4 pl-24">
+      <header className="relative flex h-[60px] items-center px-6">
         <h1 className="app-title">
           <img className="app-title-mark" src={markUrl} alt="" />
           Flock

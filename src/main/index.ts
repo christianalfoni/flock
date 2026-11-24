@@ -1,6 +1,6 @@
 // Flock's main process: the window, the app's MCP server for the sessions
 // it starts, and what the window asks of it (shared/bridge.ts).
-import { app, BrowserWindow, dialog, ipcMain, net, protocol, shell } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, nativeTheme, net, protocol, shell } from "electron";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -37,8 +37,9 @@ async function createWindow() {
     minWidth: 900,
     minHeight: 600,
     title: "Flock",
-    titleBarStyle: "hiddenInset",
-    backgroundColor: "#0e0e10",
+    // The system's own title bar, as Flock has in its app window: the
+    // window's buttons and name, double-click to zoom, drag to move.
+    backgroundColor: nativeTheme.shouldUseDarkColors ? "#0e0e10" : "#f7f6fe",
     webPreferences: { preload: join(__dirname, "../preload/index.mjs"), sandbox: false, contextIsolation: true },
   });
   // Links open in the browser, never in the window.
