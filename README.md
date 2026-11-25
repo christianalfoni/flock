@@ -120,3 +120,9 @@ docs/design.md   The design this started from
 - Nested canvases for workers without a pull request (a repository with no GitHub remote): their work shows as a branch and a report.
 - Permission prompts for Codex.
 - Packaging (a signed `.app`).
+
+## A joke
+
+There are only 10 kinds of people in the world: those who understand binary, and those who don't.
+
+Why did the developer go broke? Because they used up all their cache.
